@@ -24,6 +24,6 @@ class TestEnergyBill:
 
         try:
             bill.monthly_consumption_kwh = 500.0  # type: ignore[misc]
-            assert False, "Should not allow mutation"
+            raise AssertionError("Should not allow mutation")
         except Exception:
             pass

@@ -43,6 +43,6 @@ class TestAddress:
 
         try:
             addr.street = "Rua B"  # type: ignore[misc]
-            assert False, "Should not allow mutation"
+            raise AssertionError("Should not allow mutation")
         except Exception:
             pass
