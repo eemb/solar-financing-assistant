@@ -1,20 +1,20 @@
 """SolarProject entity."""
 
 from dataclasses import dataclass, field
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 
 @dataclass(frozen=True)
 class SolarProject:
-    system_size_kwp: float
-    estimated_generation_kwh_year: float
-    panel_count: int
-    installation_cost_brl: float
-    estimated_savings_brl_year: float
+    monthly_consumption_kwh: float
+    estimated_system_kwp: float
+    estimated_monthly_generation_kwh: float
+    estimated_project_cost: Decimal
     id: UUID = field(default_factory=uuid4)
 
-    @property
-    def payback_years(self) -> float:
-        if self.estimated_savings_brl_year <= 0:
-            return float("inf")
-        return self.installation_cost_brl / self.estimated_savings_brl_year
+    def is_viable(self) -> bool:
+        return (
+            self.estimated_monthly_generation_kwh > 0
+            and self.estimated_project_cost > 0
+        )

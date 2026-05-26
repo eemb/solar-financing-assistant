@@ -1,23 +1,26 @@
 """FinancingOffer entity."""
 
 from dataclasses import dataclass, field
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 
 @dataclass(frozen=True)
 class FinancingOffer:
-    institution: str
-    annual_interest_rate: float
-    term_months: int
-    monthly_payment_brl: float
-    financed_amount_brl: float
-    down_payment_brl: float = 0.0
+    approved_amount: Decimal
+    installment_amount: Decimal
+    number_of_installments: int
+    monthly_rate: Decimal
     id: UUID = field(default_factory=uuid4)
 
     @property
-    def total_cost_brl(self) -> float:
-        return self.down_payment_brl + (self.monthly_payment_brl * self.term_months)
+    def total_cost(self) -> Decimal:
+        return self.installment_amount * self.number_of_installments
 
-    @property
-    def total_interest_brl(self) -> float:
-        return self.total_cost_brl - self.down_payment_brl - self.financed_amount_brl
+    def is_valid(self) -> bool:
+        return (
+            self.approved_amount > 0
+            and self.installment_amount > 0
+            and self.number_of_installments > 0
+            and self.monthly_rate >= 0
+        )
