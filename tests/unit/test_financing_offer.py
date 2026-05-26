@@ -1,4 +1,4 @@
-import math
+from decimal import Decimal
 
 from solar_financing_assistant.domain.entities import FinancingOffer
 
@@ -6,33 +6,26 @@ from solar_financing_assistant.domain.entities import FinancingOffer
 class TestFinancingOffer:
     def _make_offer(self) -> FinancingOffer:
         return FinancingOffer(
-            institution="Banco Solar",
-            annual_interest_rate=0.12,
-            term_months=60,
-            monthly_payment_brl=600.0,
-            financed_amount_brl=28000.0,
-            down_payment_brl=2000.0,
+            approved_amount=Decimal("28000.00"),
+            installment_amount=Decimal("600.00"),
+            number_of_installments=60,
+            monthly_rate=Decimal("0.012"),
         )
 
     def test_total_cost(self):
         offer = self._make_offer()
-        expected = 2000.0 + (600.0 * 60)
-        assert math.isclose(offer.total_cost_brl, expected)
+        expected = Decimal("600.00") * 60
+        assert offer.total_cost == expected
 
-    def test_total_interest(self):
+    def test_is_valid(self):
         offer = self._make_offer()
-        total_cost = 2000.0 + (600.0 * 60)
-        expected_interest = total_cost - 2000.0 - 28000.0
-        assert math.isclose(offer.total_interest_brl, expected_interest)
+        assert offer.is_valid() is True
 
-    def test_no_down_payment(self):
+    def test_is_not_valid_zero_amount(self):
         offer = FinancingOffer(
-            institution="Banco X",
-            annual_interest_rate=0.10,
-            term_months=48,
-            monthly_payment_brl=700.0,
-            financed_amount_brl=25000.0,
+            approved_amount=Decimal("0"),
+            installment_amount=Decimal("600.00"),
+            number_of_installments=60,
+            monthly_rate=Decimal("0.012"),
         )
-
-        assert offer.down_payment_brl == 0.0
-        assert math.isclose(offer.total_cost_brl, 700.0 * 48)
+        assert offer.is_valid() is False

@@ -30,7 +30,7 @@ class FinancingSimulation:
     def best_offer(self) -> FinancingOffer | None:
         if not self.offers:
             return None
-        return min(self.offers, key=lambda o: o.total_cost_brl)
+        return min(self.offers, key=lambda o: o.total_cost)
 
     def add_offer(self, offer: FinancingOffer) -> None:
         self.offers.append(offer)

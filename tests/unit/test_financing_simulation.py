@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from solar_financing_assistant.domain.entities import (
     Customer,
     EnergyBill,
@@ -36,40 +38,37 @@ class TestFinancingSimulation:
     def test_add_offer(self):
         sim = self._make_simulation()
         offer = FinancingOffer(
-            institution="Banco A",
-            annual_interest_rate=0.10,
-            term_months=48,
-            monthly_payment_brl=650.0,
-            financed_amount_brl=25000.0,
+            approved_amount=Decimal("25000.00"),
+            installment_amount=Decimal("650.00"),
+            number_of_installments=48,
+            monthly_rate=Decimal("0.010"),
         )
         sim.add_offer(offer)
 
         assert len(sim.offers) == 1
-        assert sim.offers[0].institution == "Banco A"
+        assert sim.offers[0].approved_amount == Decimal("25000.00")
 
     def test_best_offer_returns_lowest_total_cost(self):
         sim = self._make_simulation()
 
         expensive = FinancingOffer(
-            institution="Banco Caro",
-            annual_interest_rate=0.15,
-            term_months=60,
-            monthly_payment_brl=800.0,
-            financed_amount_brl=30000.0,
+            approved_amount=Decimal("30000.00"),
+            installment_amount=Decimal("800.00"),
+            number_of_installments=60,
+            monthly_rate=Decimal("0.015"),
         )
         cheap = FinancingOffer(
-            institution="Banco Barato",
-            annual_interest_rate=0.08,
-            term_months=48,
-            monthly_payment_brl=600.0,
-            financed_amount_brl=25000.0,
+            approved_amount=Decimal("25000.00"),
+            installment_amount=Decimal("600.00"),
+            number_of_installments=48,
+            monthly_rate=Decimal("0.008"),
         )
 
         sim.add_offer(expensive)
         sim.add_offer(cheap)
 
         assert sim.best_offer is not None
-        assert sim.best_offer.institution == "Banco Barato"
+        assert sim.best_offer.approved_amount == Decimal("25000.00")
 
     def test_mark_completed(self):
         sim = self._make_simulation()
