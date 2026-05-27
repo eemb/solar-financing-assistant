@@ -70,10 +70,10 @@ class TestFinancingSimulation:
         assert sim.best_offer is not None
         assert sim.best_offer.approved_amount == Decimal("25000.00")
 
-    def test_mark_completed(self):
+    def test_mark_approved(self):
         sim = self._make_simulation()
-        sim.mark_completed()
-        assert sim.status == SimulationStatus.COMPLETED
+        sim.mark_approved()
+        assert sim.status == SimulationStatus.APPROVED
 
     def test_mark_failed(self):
         sim = self._make_simulation()
