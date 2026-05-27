@@ -1,0 +1,170 @@
+"""Terminal CLI for the solar financing assistant journey."""
+
+import asyncio
+from decimal import Decimal
+from pathlib import Path
+
+from solar_financing_assistant.application.dtos.extracted_energy_bill_data_dto import (
+    ExtractedEnergyBillDataDTO,
+)
+from solar_financing_assistant.application.use_cases.check_simulation_status import (
+    CheckSimulationStatusUseCase,
+)
+from solar_financing_assistant.application.use_cases.create_financing_simulation import (
+    CreateFinancingSimulationUseCase,
+)
+from solar_financing_assistant.application.use_cases.extract_energy_bill_data import (
+    ExtractEnergyBillDataUseCase,
+)
+from solar_financing_assistant.domain.entities.financing_offer import FinancingOffer
+from solar_financing_assistant.domain.entities.financing_simulation import (
+    FinancingSimulation,
+)
+from solar_financing_assistant.domain.entities.solar_project import SolarProject
+from solar_financing_assistant.domain.exceptions import (
+    InvalidEnergyBillError,
+    SimulationError,
+)
+
+_GENERATION_PER_KWP_MONTH = 120.0
+_COST_PER_KWP = Decimal("5000.00")
+
+
+class ChatCLI:
+    def __init__(
+        self,
+        extract_energy_bill: ExtractEnergyBillDataUseCase,
+        create_simulation: CreateFinancingSimulationUseCase,
+        check_status: CheckSimulationStatusUseCase,
+    ) -> None:
+        self._extract_energy_bill = extract_energy_bill
+        self._create_simulation = create_simulation
+        self._check_status = check_status
+
+    def run(self) -> None:
+        print("Solar Financing Assistant")
+        print()
+
+        while True:
+            self._print_menu()
+            choice = input("Escolha uma opção: ").strip()
+
+            if choice == "0":
+                print("Até logo!")
+                break
+            if choice == "1":
+                self._simulate_financing()
+            elif choice == "2":
+                self._consult_status()
+            else:
+                print("Opção inválida. Tente novamente.")
+            print()
+
+    def _print_menu(self) -> None:
+        print("--- Menu ---")
+        print("1 - Simular financiamento")
+        print("2 - Consultar status")
+        print("0 - Sair")
+
+    def _simulate_financing(self) -> None:
+        file_path_str = input("Caminho da conta de energia: ").strip()
+        if not file_path_str:
+            print("Caminho não informado.")
+            return
+
+        file_path = Path(file_path_str)
+
+        try:
+            bill_data = asyncio.run(self._extract_energy_bill.execute(file_path))
+        except InvalidEnergyBillError as exc:
+            print(f"Erro na conta de energia: {exc}")
+            return
+
+        self._print_extracted_bill_data(bill_data)
+
+        solar_project = _estimate_solar_project(bill_data.monthly_consumption_kwh)
+        self._print_solar_project(solar_project)
+
+        confirmation = input("Confirma a simulação de financiamento? (s/n): ").strip().lower()
+        if confirmation != "s":
+            print("Simulação cancelada.")
+            return
+
+        try:
+            simulation = self._create_simulation.execute(solar_project)
+        except SimulationError as exc:
+            print(f"Erro na simulação: {exc}")
+            return
+
+        self._print_simulation_result(simulation)
+
+    def _consult_status(self) -> None:
+        simulation_id = input("ID da simulação: ").strip()
+        if not simulation_id:
+            print("ID não informado.")
+            return
+
+        try:
+            simulation = self._check_status.execute(simulation_id)
+        except SimulationError as exc:
+            print(f"Erro: {exc}")
+            return
+
+        print(f"Status: {simulation.status.value}")
+        offer = simulation.best_offer
+        if offer is not None:
+            self._print_offer(offer)
+        else:
+            print("Nenhuma oferta disponível.")
+
+    @staticmethod
+    def _print_extracted_bill_data(data: ExtractedEnergyBillDataDTO) -> None:
+        print()
+        print("--- Dados extraídos da conta ---")
+        print(f"Cliente: {data.customer_name}")
+        print(f"CPF: {data.cpf}")
+        print(f"CEP: {data.zipcode}")
+        print(f"Distribuidora: {data.distributor}")
+        print(f"Consumo mensal (kWh): {data.monthly_consumption_kwh}")
+        print(f"Custo mensal (R$): {data.monthly_cost_brl}")
+        print(f"Tarifa (R$/kWh): {data.tariff_brl_per_kwh}")
+        print(f"Mês de referência: {data.reference_month}")
+        print()
+
+    @staticmethod
+    def _print_solar_project(project: SolarProject) -> None:
+        print("--- Projeto solar estimado ---")
+        print(f"Consumo mensal (kWh): {project.monthly_consumption_kwh}")
+        print(f"Sistema estimado (kWp): {project.estimated_system_kwp:.2f}")
+        print(f"Geração mensal estimada (kWh): {project.estimated_monthly_generation_kwh:.2f}")
+        print(f"Custo estimado do projeto (R$): {project.estimated_project_cost}")
+        print()
+
+    def _print_simulation_result(self, simulation: FinancingSimulation) -> None:
+        print()
+        print("--- Resultado da simulação ---")
+        print(f"ID: {simulation.simulation_id}")
+        print(f"Status: {simulation.status.value}")
+        offer = simulation.best_offer
+        if offer is not None:
+            self._print_offer(offer)
+
+    @staticmethod
+    def _print_offer(offer: FinancingOffer) -> None:
+        print(f"Valor aprovado (R$): {offer.approved_amount}")
+        print(f"Parcela (R$): {offer.installment_amount}")
+        print(f"Quantidade de parcelas: {offer.number_of_installments}")
+        print(f"Taxa mensal: {offer.monthly_rate}")
+
+
+def _estimate_solar_project(monthly_consumption_kwh: float) -> SolarProject:
+    estimated_system_kwp = monthly_consumption_kwh / _GENERATION_PER_KWP_MONTH
+    estimated_monthly_generation_kwh = estimated_system_kwp * _GENERATION_PER_KWP_MONTH
+    estimated_project_cost = Decimal(str(estimated_system_kwp)) * _COST_PER_KWP
+
+    return SolarProject(
+        monthly_consumption_kwh=monthly_consumption_kwh,
+        estimated_system_kwp=estimated_system_kwp,
+        estimated_monthly_generation_kwh=estimated_monthly_generation_kwh,
+        estimated_project_cost=estimated_project_cost,
+    )
