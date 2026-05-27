@@ -1,9 +1,9 @@
 """FinancingSimulation entity — aggregate root.
 
 Intentionally NOT frozen: as the aggregate root, FinancingSimulation owns its
-lifecycle. State transitions (add_offer, mark_completed, mark_failed) and lazy
-hydration of solar_project require in-place mutation. Callers must use the
-public methods rather than assigning to fields directly.
+lifecycle. State transitions (add_offer, approve, mark_completed, mark_failed)
+and lazy hydration of solar_project require in-place mutation. Callers must use
+the public methods rather than assigning to fields directly.
 """
 
 from dataclasses import dataclass, field
@@ -17,6 +17,7 @@ from .solar_project import SolarProject
 
 
 class SimulationStatus(Enum):
+    CREATED = "created"
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -25,8 +26,9 @@ class SimulationStatus(Enum):
 
 @dataclass
 class FinancingSimulation:
-    customer: Customer
-    energy_bill: EnergyBill
+    simulation_id: str = field(default_factory=lambda: f"SIM-{uuid4()}")
+    customer: Customer | None = None
+    energy_bill: EnergyBill | None = None
     solar_project: SolarProject | None = None
     offers: list[FinancingOffer] = field(default_factory=list)
     status: SimulationStatus = SimulationStatus.PENDING
@@ -40,6 +42,10 @@ class FinancingSimulation:
 
     def add_offer(self, offer: FinancingOffer) -> None:
         self.offers.append(offer)
+
+    def approve(self, offer: FinancingOffer) -> None:
+        self.add_offer(offer)
+        self.mark_completed()
 
     def mark_completed(self) -> None:
         self.status = SimulationStatus.COMPLETED

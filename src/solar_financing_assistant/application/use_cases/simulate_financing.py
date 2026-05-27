@@ -12,11 +12,14 @@ class SimulateFinancingUseCase:
     def __init__(
         self,
         financing_engine: FinancingEnginePort,
-        monthly_rate: Decimal = Decimal("0.019"),
+        monthly_rate: Decimal | None = None,
     ) -> None:
         self.financing_engine = financing_engine
-        # monthly_rate should be injected from Settings.monthly_rate in production
-        self.monthly_rate = monthly_rate
+        if monthly_rate is not None:
+            self.monthly_rate = monthly_rate
+        else:
+            from solar_financing_assistant.infrastructure.config import settings
+            self.monthly_rate = settings.monthly_rate
 
     def execute(
         self,

@@ -28,7 +28,6 @@ async def test_extract_energy_bill_data_with_mock_ocr() -> None:
 
 async def test_extract_energy_bill_data_raises_when_consumption_missing() -> None:
     from decimal import Decimal
-    from unittest.mock import AsyncMock
 
     from solar_financing_assistant.application.dtos.extracted_energy_bill_data_dto import (
         ExtractedEnergyBillDataDTO,
