@@ -7,9 +7,9 @@ from solar_financing_assistant.domain.entities.financing_simulation import (
 
 class FinancingSimulationRepositoryPort(ABC):
     @abstractmethod
-    def save(self, simulation: FinancingSimulation) -> None:
+    async def save(self, simulation: FinancingSimulation) -> None:
         pass
 
     @abstractmethod
-    def find_by_id(self, simulation_id: str) -> FinancingSimulation | None:
+    async def find_by_id(self, simulation_id: str) -> FinancingSimulation | None:
         pass

@@ -1,4 +1,10 @@
-"""FinancingSimulation entity — aggregate root."""
+"""FinancingSimulation entity — aggregate root.
+
+Intentionally NOT frozen: as the aggregate root, FinancingSimulation owns its
+lifecycle. State transitions (add_offer, mark_completed, mark_failed) and lazy
+hydration of solar_project require in-place mutation. Callers must use the
+public methods rather than assigning to fields directly.
+"""
 
 from dataclasses import dataclass, field
 from enum import Enum

@@ -8,5 +8,5 @@ from solar_financing_assistant.application.dtos.extracted_energy_bill_data_dto i
 
 class OCRPort(ABC):
     @abstractmethod
-    def extract_energy_bill_data(self, file_path: Path) -> ExtractedEnergyBillDataDTO:
+    async def extract_energy_bill_data(self, file_path: Path) -> ExtractedEnergyBillDataDTO:
         pass

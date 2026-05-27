@@ -5,7 +5,7 @@ from solar_financing_assistant.application.dtos.solar_potential_dto import Solar
 
 class SolarPotentialGatewayPort(ABC):
     @abstractmethod
-    def get_solar_potential(
+    async def get_solar_potential(
         self,
         latitude: float,
         longitude: float,
