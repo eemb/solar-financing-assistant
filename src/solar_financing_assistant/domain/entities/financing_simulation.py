@@ -1,7 +1,7 @@
 """FinancingSimulation entity — aggregate root.
 
 Intentionally NOT frozen: as the aggregate root, FinancingSimulation owns its
-lifecycle. State transitions (add_offer, approve, mark_completed, mark_failed)
+lifecycle. State transitions (add_offer, approve, mark_approved, mark_failed)
 and lazy hydration of solar_project require in-place mutation. Callers must use
 the public methods rather than assigning to fields directly.
 """
@@ -20,7 +20,7 @@ class SimulationStatus(Enum):
     CREATED = "created"
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
+    APPROVED = "approved"
     FAILED = "failed"
 
 
@@ -45,10 +45,10 @@ class FinancingSimulation:
 
     def approve(self, offer: FinancingOffer) -> None:
         self.add_offer(offer)
-        self.mark_completed()
+        self.mark_approved()
 
-    def mark_completed(self) -> None:
-        self.status = SimulationStatus.COMPLETED
+    def mark_approved(self) -> None:
+        self.status = SimulationStatus.APPROVED
 
     def mark_failed(self) -> None:
         self.status = SimulationStatus.FAILED

@@ -1,7 +1,7 @@
 """Terminal CLI for the solar financing assistant journey."""
 
 import asyncio
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 from solar_financing_assistant.application.dtos.extracted_energy_bill_data_dto import (
@@ -126,8 +126,8 @@ class ChatCLI:
         print(f"CEP: {data.zipcode}")
         print(f"Distribuidora: {data.distributor}")
         print(f"Consumo mensal (kWh): {data.monthly_consumption_kwh}")
-        print(f"Custo mensal (R$): {data.monthly_cost_brl}")
-        print(f"Tarifa (R$/kWh): {data.tariff_brl_per_kwh}")
+        print(f"Custo mensal (R$): {_format_brl(data.monthly_cost_brl)}")
+        print(f"Tarifa (R$/kWh): {_format_brl(data.tariff_brl_per_kwh)}")
         print(f"Mês de referência: {data.reference_month}")
         print()
 
@@ -137,7 +137,7 @@ class ChatCLI:
         print(f"Consumo mensal (kWh): {project.monthly_consumption_kwh}")
         print(f"Sistema estimado (kWp): {project.estimated_system_kwp:.2f}")
         print(f"Geração mensal estimada (kWh): {project.estimated_monthly_generation_kwh:.2f}")
-        print(f"Custo estimado do projeto (R$): {project.estimated_project_cost}")
+        print(f"Custo estimado do projeto (R$): {_format_brl(project.estimated_project_cost)}")
         print()
 
     def _print_simulation_result(self, simulation: FinancingSimulation) -> None:
@@ -151,8 +151,8 @@ class ChatCLI:
 
     @staticmethod
     def _print_offer(offer: FinancingOffer) -> None:
-        print(f"Valor aprovado (R$): {offer.approved_amount}")
-        print(f"Parcela (R$): {offer.installment_amount}")
+        print(f"Valor aprovado (R$): {_format_brl(offer.approved_amount)}")
+        print(f"Parcela (R$): {_format_brl(offer.installment_amount)}")
         print(f"Quantidade de parcelas: {offer.number_of_installments}")
         print(f"Taxa mensal: {offer.monthly_rate}")
 
@@ -160,7 +160,9 @@ class ChatCLI:
 def _estimate_solar_project(monthly_consumption_kwh: float) -> SolarProject:
     estimated_system_kwp = monthly_consumption_kwh / _GENERATION_PER_KWP_MONTH
     estimated_monthly_generation_kwh = estimated_system_kwp * _GENERATION_PER_KWP_MONTH
-    estimated_project_cost = Decimal(str(estimated_system_kwp)) * _COST_PER_KWP
+    estimated_project_cost = (
+        Decimal(str(estimated_system_kwp)) * _COST_PER_KWP
+    ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
     return SolarProject(
         monthly_consumption_kwh=monthly_consumption_kwh,
@@ -168,3 +170,9 @@ def _estimate_solar_project(monthly_consumption_kwh: float) -> SolarProject:
         estimated_monthly_generation_kwh=estimated_monthly_generation_kwh,
         estimated_project_cost=estimated_project_cost,
     )
+
+
+def _format_brl(value: Decimal | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP):.2f}"

@@ -32,7 +32,7 @@ def test_creates_approved_simulation() -> None:
 
     simulation = use_case.execute(_make_viable_project())
 
-    assert simulation.status == SimulationStatus.COMPLETED
+    assert simulation.status == SimulationStatus.APPROVED
 
 
 def test_generates_simulation_id_starting_with_sim() -> None:
