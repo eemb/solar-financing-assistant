@@ -17,7 +17,7 @@ def test_simulate_financing_use_case_returns_offer() -> None:
         estimated_project_cost=Decimal("22000.00"),
     )
 
-    use_case = SimulateFinancingUseCase(LocalFinancingEngine())
+    use_case = SimulateFinancingUseCase(LocalFinancingEngine(), monthly_rate=Decimal("0.019"))
 
     offer = use_case.execute(project)
 

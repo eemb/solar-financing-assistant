@@ -37,7 +37,7 @@ class TestCustomer:
         assert customer.address.city == "SP"
 
     def test_each_instance_has_unique_id(self):
-        c1 = Customer(name="A", document="1", email="a@a.com", phone="1")
-        c2 = Customer(name="B", document="2", email="b@b.com", phone="2")
+        c1 = Customer(name="A", document="12345678909", email="a@a.com", phone="1")
+        c2 = Customer(name="B", document="98765432100", email="b@b.com", phone="2")
 
         assert c1.id != c2.id

@@ -8,7 +8,7 @@ from solar_financing_assistant.application.ports.ocr_port import OCRPort
 
 
 class MockOCRAdapter(OCRPort):
-    def extract_energy_bill_data(self, file_path: Path) -> ExtractedEnergyBillDataDTO:
+    async def extract_energy_bill_data(self, file_path: Path) -> ExtractedEnergyBillDataDTO:
         return ExtractedEnergyBillDataDTO(
             customer_name="João da Silva",
             cpf="12345678909",
