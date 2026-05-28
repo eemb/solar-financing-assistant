@@ -1,13 +1,12 @@
-from abc import ABC, abstractmethod
+from typing import Protocol, runtime_checkable
 
 from solar_financing_assistant.application.dtos.solar_potential_dto import SolarPotentialDTO
 
 
-class SolarPotentialGatewayPort(ABC):
-    @abstractmethod
+@runtime_checkable
+class SolarPotentialGatewayPort(Protocol):
     async def get_solar_potential(
         self,
         latitude: float,
         longitude: float,
-    ) -> SolarPotentialDTO:
-        pass
+    ) -> SolarPotentialDTO: ...

@@ -1,5 +1,9 @@
 """Entry point for `python -m solar_financing_assistant`."""
 
+from solar_financing_assistant.infrastructure.config import configure_logging
+
+configure_logging()
+
 from solar_financing_assistant.application.use_cases.check_simulation_status import (
     CheckSimulationStatusUseCase,
 )

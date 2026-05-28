@@ -1,8 +1,10 @@
 """Terminal CLI for the solar financing assistant journey."""
 
 import asyncio
+import logging
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
+from uuid import UUID
 
 from solar_financing_assistant.application.dtos.extracted_energy_bill_data_dto import (
     ExtractedEnergyBillDataDTO,
@@ -28,6 +30,8 @@ from solar_financing_assistant.domain.exceptions import (
 
 _GENERATION_PER_KWP_MONTH = 120.0
 _COST_PER_KWP = Decimal("5000.00")
+
+logger = logging.getLogger(__name__)
 
 
 class ChatCLI:
@@ -99,19 +103,25 @@ class ChatCLI:
         self._print_simulation_result(simulation)
 
     def _consult_status(self) -> None:
-        simulation_id = input("ID da simulação: ").strip()
-        if not simulation_id:
+        id_str = input("ID da simulação (UUID): ").strip()
+        if not id_str:
             print("ID não informado.")
             return
 
         try:
-            simulation = self._check_status.execute(simulation_id)
+            sim_uuid = UUID(id_str)
+        except ValueError:
+            print("ID inválido. Informe um UUID válido (ex: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).")
+            return
+
+        try:
+            simulation = self._check_status.execute(sim_uuid)
         except SimulationError as exc:
             print(f"Erro: {exc}")
             return
 
         print(f"Status: {simulation.status.value}")
-        offer = simulation.best_offer
+        offer = simulation.get_best_offer()
         if offer is not None:
             self._print_offer(offer)
         else:
@@ -143,9 +153,10 @@ class ChatCLI:
     def _print_simulation_result(self, simulation: FinancingSimulation) -> None:
         print()
         print("--- Resultado da simulação ---")
-        print(f"ID: {simulation.simulation_id}")
+        print(f"Referência: {simulation.simulation_id}")
+        print(f"ID para consulta: {simulation.id}")
         print(f"Status: {simulation.status.value}")
-        offer = simulation.best_offer
+        offer = simulation.get_best_offer()
         if offer is not None:
             self._print_offer(offer)
 

@@ -30,3 +30,12 @@ class TestSolarProject:
             estimated_project_cost=Decimal("0"),
         )
         assert project.is_viable() is False
+
+    def test_is_not_viable_zero_kwp(self):
+        project = SolarProject(
+            monthly_consumption_kwh=450.0,
+            estimated_system_kwp=0.0,
+            estimated_monthly_generation_kwh=460.0,
+            estimated_project_cost=Decimal("22000.00"),
+        )
+        assert project.is_viable() is False

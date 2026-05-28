@@ -15,6 +15,7 @@ class SolarProject:
 
     def is_viable(self) -> bool:
         return (
-            self.estimated_monthly_generation_kwh > 0
+            self.estimated_system_kwp > 0
+            and self.estimated_monthly_generation_kwh > 0
             and self.estimated_project_cost > 0
         )

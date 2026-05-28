@@ -1,3 +1,4 @@
+import logging
 from decimal import ROUND_HALF_UP, Decimal
 
 from solar_financing_assistant.application.ports.financing_engine_port import (
@@ -5,6 +6,8 @@ from solar_financing_assistant.application.ports.financing_engine_port import (
 )
 from solar_financing_assistant.domain.entities.financing_offer import FinancingOffer
 from solar_financing_assistant.domain.exceptions import SimulationError
+
+logger = logging.getLogger(__name__)
 
 
 class LocalFinancingEngine(FinancingEnginePort):
@@ -23,21 +26,42 @@ class LocalFinancingEngine(FinancingEnginePort):
         if monthly_rate < 0:
             raise SimulationError("Monthly rate cannot be negative.")
 
+        logger.debug(
+            "Calculating Price installment: cost=%s, installments=%d, rate=%s",
+            project_cost,
+            number_of_installments,
+            monthly_rate,
+        )
+
         installment_amount = self._calculate_price_installment(
             principal=project_cost,
             monthly_rate=monthly_rate,
             installments=number_of_installments,
         )
 
-        return FinancingOffer(
+        offer = FinancingOffer(
             approved_amount=project_cost,
             installment_amount=installment_amount,
             number_of_installments=number_of_installments,
             monthly_rate=monthly_rate,
         )
 
+        if not offer.is_valid():
+            raise SimulationError(
+                f"Engine produced an invalid offer: approved={offer.approved_amount}, "
+                f"installment={offer.installment_amount}, n={offer.number_of_installments}."
+            )
+
+        logger.info(
+            "Offer generated: approved=%s, installment=%s x%d",
+            offer.approved_amount,
+            offer.installment_amount,
+            offer.number_of_installments,
+        )
+        return offer
+
+    @staticmethod
     def _calculate_price_installment(
-        self,
         principal: Decimal,
         monthly_rate: Decimal,
         installments: int,

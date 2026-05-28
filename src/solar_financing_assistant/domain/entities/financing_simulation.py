@@ -6,14 +6,19 @@ and lazy hydration of solar_project require in-place mutation. Callers must use
 the public methods rather than assigning to fields directly.
 """
 
+import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 from uuid import UUID, uuid4
 
 from .customer import Customer
 from .energy_bill import EnergyBill
 from .financing_offer import FinancingOffer
 from .solar_project import SolarProject
+
+logger = logging.getLogger(__name__)
 
 
 class SimulationStatus(Enum):
@@ -34,11 +39,21 @@ class FinancingSimulation:
     status: SimulationStatus = SimulationStatus.PENDING
     id: UUID = field(default_factory=uuid4)
 
-    @property
-    def best_offer(self) -> FinancingOffer | None:
+    def get_best_offer(
+        self,
+        key: Callable[[FinancingOffer], Any] | None = None,
+    ) -> FinancingOffer | None:
+        """Return the offer selected by *key* (default: lowest monthly installment).
+
+        The selection criterion is a business decision: callers should supply an
+        explicit *key* whenever the default does not match their context.  For
+        example, to minimise total interest cost pass
+        ``key=lambda o: o.total_cost``.
+        """
         if not self.offers:
             return None
-        return min(self.offers, key=lambda o: o.total_cost)
+        effective_key = key if key is not None else lambda o: o.installment_amount
+        return min(self.offers, key=effective_key)
 
     def add_offer(self, offer: FinancingOffer) -> None:
         self.offers.append(offer)
@@ -51,4 +66,5 @@ class FinancingSimulation:
         self.status = SimulationStatus.APPROVED
 
     def mark_failed(self) -> None:
+        logger.warning("Simulation %s marked as FAILED.", self.simulation_id)
         self.status = SimulationStatus.FAILED
