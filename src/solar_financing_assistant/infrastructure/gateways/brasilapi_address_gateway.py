@@ -8,8 +8,13 @@ from solar_financing_assistant.domain.exceptions import InvalidAddressError
 
 
 class BrasilApiAddressGateway(AddressGatewayPort):
-    def __init__(self, base_url: str = "https://brasilapi.com.br/api") -> None:
+    def __init__(
+        self,
+        base_url: str = "https://brasilapi.com.br/api",
+        timeout_seconds: float = 10.0,
+    ) -> None:
         self.base_url = base_url
+        self.timeout_seconds = timeout_seconds
 
     async def get_address_by_zipcode(self, zipcode: str) -> AddressDTO:
         clean_zipcode = "".join(c for c in zipcode if c.isdigit())
@@ -17,7 +22,7 @@ class BrasilApiAddressGateway(AddressGatewayPort):
         if len(clean_zipcode) != 8:
             raise InvalidAddressError("Zipcode must have 8 digits.")
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
             response = await client.get(f"{self.base_url}/cep/v2/{clean_zipcode}")
 
         if response.status_code == 404:
