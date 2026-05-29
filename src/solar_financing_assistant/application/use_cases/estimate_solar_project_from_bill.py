@@ -44,9 +44,7 @@ class EstimateSolarProjectFromBillUseCase:
             extracted_bill.monthly_consumption_kwh is None
             or extracted_bill.monthly_consumption_kwh <= 0
         ):
-            raise SimulationError(
-                "Monthly consumption is required to estimate solar project."
-            )
+            raise SimulationError("Monthly consumption is required to estimate solar project.")
 
         generation_per_kwp_month = self._fallback_generation_per_kwp_month
 
@@ -69,8 +67,7 @@ class EstimateSolarProjectFromBillUseCase:
                     )
             except Exception:
                 logger.warning(
-                    "Could not retrieve solar potential; "
-                    "falling back to %.2f kWh/kWp/month",
+                    "Could not retrieve solar potential; falling back to %.2f kWh/kWp/month",
                     self._fallback_generation_per_kwp_month,
                 )
                 generation_per_kwp_month = self._fallback_generation_per_kwp_month

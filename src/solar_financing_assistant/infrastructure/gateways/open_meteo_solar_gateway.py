@@ -50,7 +50,5 @@ class OpenMeteoSolarGateway(SolarPotentialGatewayPort):
             latitude=latitude,
             longitude=longitude,
             average_shortwave_radiation=round(average_shortwave_radiation, 2),
-            estimated_daily_generation_kwh_per_kwp=round(
-                estimated_daily_generation_kwh_per_kwp, 2
-            ),
+            estimated_daily_generation_kwh_per_kwp=round(estimated_daily_generation_kwh_per_kwp, 2),
         )

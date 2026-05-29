@@ -90,9 +90,7 @@ class ChatCLI:
         self._print_extracted_bill_data(bill_data)
 
         try:
-            solar_project = asyncio.run(
-                self._estimate_solar_project_from_bill.execute(bill_data)
-            )
+            solar_project = asyncio.run(self._estimate_solar_project_from_bill.execute(bill_data))
         except SimulationError as exc:
             print(f"Erro na estimativa do projeto solar: {exc}")
             return
