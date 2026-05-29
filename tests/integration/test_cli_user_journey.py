@@ -18,6 +18,9 @@ from solar_financing_assistant.application.use_cases.create_financing_simulation
 from solar_financing_assistant.application.use_cases.estimate_solar_project import (
     EstimateSolarProjectUseCase,
 )
+from solar_financing_assistant.application.use_cases.estimate_solar_project_from_bill import (
+    EstimateSolarProjectFromBillUseCase,
+)
 from solar_financing_assistant.application.use_cases.extract_energy_bill_data import (
     ExtractEnergyBillDataUseCase,
 )
@@ -31,19 +34,43 @@ from solar_financing_assistant.infrastructure.repositories.in_memory_simulation_
 from solar_financing_assistant.interface.cli.chat_cli import ChatCLI
 
 # ---------------------------------------------------------------------------
+# Fake use cases (no network)
+# ---------------------------------------------------------------------------
+
+
+class _OfflineValidateAddressUseCase:
+    """Always raises so EstimateSolarProjectFromBillUseCase uses the fallback."""
+
+    async def execute(self, zipcode: str) -> None:
+        raise Exception("No network in integration tests")
+
+
+class _NeverCalledSolarPotentialUseCase:
+    def execute(self, latitude: float, longitude: float) -> None:
+        raise AssertionError("Solar potential should not be called in integration tests")
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
 def _make_cli() -> tuple[ChatCLI, InMemorySimulationRepository]:
     repository = InMemorySimulationRepository()
+
+    estimate_solar_project_from_bill = EstimateSolarProjectFromBillUseCase(
+        validate_address_use_case=_OfflineValidateAddressUseCase(),  # type: ignore[arg-type]
+        get_solar_potential_use_case=_NeverCalledSolarPotentialUseCase(),  # type: ignore[arg-type]
+        estimate_solar_project_use_case=EstimateSolarProjectUseCase(),
+        fallback_generation_per_kwp_month=120.0,
+        cost_per_kwp_brl=Decimal("5000.00"),
+    )
+
     cli = ChatCLI(
         extract_energy_bill=ExtractEnergyBillDataUseCase(MockOCRAdapter()),
         create_simulation=CreateFinancingSimulationUseCase(LocalFinancingEngine(), repository),
         check_status=CheckSimulationStatusUseCase(repository),
-        estimate_solar_project=EstimateSolarProjectUseCase(),
-        generation_per_kwp_month=120.0,
-        cost_per_kwp_brl=Decimal("5000.00"),
+        estimate_solar_project_from_bill=estimate_solar_project_from_bill,
         monthly_rate=Decimal("0.019"),
     )
     return cli, repository
