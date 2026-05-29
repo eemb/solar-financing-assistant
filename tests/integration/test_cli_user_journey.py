@@ -3,6 +3,7 @@
 import io
 import re
 from contextlib import redirect_stdout
+from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
 
@@ -13,6 +14,9 @@ from solar_financing_assistant.application.use_cases.check_simulation_status imp
 )
 from solar_financing_assistant.application.use_cases.create_financing_simulation import (
     CreateFinancingSimulationUseCase,
+)
+from solar_financing_assistant.application.use_cases.estimate_solar_project import (
+    EstimateSolarProjectUseCase,
 )
 from solar_financing_assistant.application.use_cases.extract_energy_bill_data import (
     ExtractEnergyBillDataUseCase,
@@ -37,6 +41,10 @@ def _make_cli() -> tuple[ChatCLI, InMemorySimulationRepository]:
         extract_energy_bill=ExtractEnergyBillDataUseCase(MockOCRAdapter()),
         create_simulation=CreateFinancingSimulationUseCase(LocalFinancingEngine(), repository),
         check_status=CheckSimulationStatusUseCase(repository),
+        estimate_solar_project=EstimateSolarProjectUseCase(),
+        generation_per_kwp_month=120.0,
+        cost_per_kwp_brl=Decimal("5000.00"),
+        monthly_rate=Decimal("0.019"),
     )
     return cli, repository
 
