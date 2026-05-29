@@ -1,0 +1,49 @@
+"""BrasilAPI implementation of AddressGatewayPort."""
+
+import httpx
+
+from solar_financing_assistant.application.dtos.address_dto import AddressDTO
+from solar_financing_assistant.application.ports.address_gateway_port import AddressGatewayPort
+from solar_financing_assistant.domain.exceptions import InvalidAddressError
+
+
+class BrasilApiAddressGateway(AddressGatewayPort):
+    def __init__(self, base_url: str = "https://brasilapi.com.br/api") -> None:
+        self.base_url = base_url
+
+    async def get_address_by_zipcode(self, zipcode: str) -> AddressDTO:
+        clean_zipcode = "".join(c for c in zipcode if c.isdigit())
+
+        if len(clean_zipcode) != 8:
+            raise InvalidAddressError("Zipcode must have 8 digits.")
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{self.base_url}/cep/v2/{clean_zipcode}")
+
+        if response.status_code == 404:
+            raise InvalidAddressError("Zipcode not found.")
+
+        response.raise_for_status()
+
+        data: dict = response.json()
+
+        latitude: float | None = None
+        longitude: float | None = None
+        location = data.get("location")
+        if location:
+            coordinates = location.get("coordinates")
+            if coordinates:
+                lat_val = coordinates.get("latitude")
+                lon_val = coordinates.get("longitude")
+                latitude = float(lat_val) if lat_val else None
+                longitude = float(lon_val) if lon_val else None
+
+        return AddressDTO(
+            zipcode=data.get("cep", clean_zipcode),
+            street=data.get("street"),
+            neighborhood=data.get("neighborhood"),
+            city=data.get("city"),
+            state=data.get("state"),
+            latitude=latitude,
+            longitude=longitude,
+        )
