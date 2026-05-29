@@ -171,9 +171,9 @@ class ChatCLI:
 def _estimate_solar_project(monthly_consumption_kwh: float) -> SolarProject:
     estimated_system_kwp = monthly_consumption_kwh / _GENERATION_PER_KWP_MONTH
     estimated_monthly_generation_kwh = estimated_system_kwp * _GENERATION_PER_KWP_MONTH
-    estimated_project_cost = (
-        Decimal(str(estimated_system_kwp)) * _COST_PER_KWP
-    ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    estimated_project_cost = (Decimal(str(estimated_system_kwp)) * _COST_PER_KWP).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
 
     return SolarProject(
         monthly_consumption_kwh=monthly_consumption_kwh,

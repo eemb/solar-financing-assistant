@@ -12,9 +12,7 @@ class TestAddress:
             zip_code="01001-000",
         )
 
-        assert addr.full_display() == (
-            "Rua das Flores, 123, Centro - São Paulo/SP, 01001-000"
-        )
+        assert addr.full_display() == ("Rua das Flores, 123, Centro - São Paulo/SP, 01001-000")
 
     def test_full_display_with_complement(self):
         addr = Address(

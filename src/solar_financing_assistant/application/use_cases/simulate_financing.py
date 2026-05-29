@@ -22,6 +22,7 @@ class SimulateFinancingUseCase:
             self.monthly_rate = monthly_rate
         else:
             from solar_financing_assistant.infrastructure.config import settings
+
             self.monthly_rate = settings.monthly_rate
 
     def execute(
@@ -48,5 +49,9 @@ class SimulateFinancingUseCase:
             number_of_installments=number_of_installments,
             monthly_rate=self.monthly_rate,
         )
-        logger.info("Offer result: installment=%s x%d", offer.installment_amount, offer.number_of_installments)
+        logger.info(
+            "Offer result: installment=%s x%d",
+            offer.installment_amount,
+            offer.number_of_installments,
+        )
         return offer
