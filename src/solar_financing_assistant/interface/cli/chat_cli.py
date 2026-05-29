@@ -9,11 +9,17 @@ from uuid import UUID
 from solar_financing_assistant.application.dtos.extracted_energy_bill_data_dto import (
     ExtractedEnergyBillDataDTO,
 )
+from solar_financing_assistant.application.dtos.solar_project_estimate_input_dto import (
+    SolarProjectEstimateInputDTO,
+)
 from solar_financing_assistant.application.use_cases.check_simulation_status import (
     CheckSimulationStatusUseCase,
 )
 from solar_financing_assistant.application.use_cases.create_financing_simulation import (
     CreateFinancingSimulationUseCase,
+)
+from solar_financing_assistant.application.use_cases.estimate_solar_project import (
+    EstimateSolarProjectUseCase,
 )
 from solar_financing_assistant.application.use_cases.extract_energy_bill_data import (
     ExtractEnergyBillDataUseCase,
@@ -22,14 +28,10 @@ from solar_financing_assistant.domain.entities.financing_offer import FinancingO
 from solar_financing_assistant.domain.entities.financing_simulation import (
     FinancingSimulation,
 )
-from solar_financing_assistant.domain.entities.solar_project import SolarProject
 from solar_financing_assistant.domain.exceptions import (
     InvalidEnergyBillError,
     SimulationError,
 )
-
-_GENERATION_PER_KWP_MONTH = 120.0
-_COST_PER_KWP = Decimal("5000.00")
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +42,18 @@ class ChatCLI:
         extract_energy_bill: ExtractEnergyBillDataUseCase,
         create_simulation: CreateFinancingSimulationUseCase,
         check_status: CheckSimulationStatusUseCase,
+        estimate_solar_project: EstimateSolarProjectUseCase,
+        generation_per_kwp_month: float,
+        cost_per_kwp_brl: Decimal,
+        monthly_rate: Decimal,
     ) -> None:
         self._extract_energy_bill = extract_energy_bill
         self._create_simulation = create_simulation
         self._check_status = check_status
+        self._estimate_solar_project = estimate_solar_project
+        self.generation_per_kwp_month = generation_per_kwp_month
+        self.cost_per_kwp_brl = cost_per_kwp_brl
+        self.monthly_rate = monthly_rate
 
     def run(self) -> None:
         print("Solar Financing Assistant")
@@ -86,8 +96,19 @@ class ChatCLI:
 
         self._print_extracted_bill_data(bill_data)
 
-        solar_project = _estimate_solar_project(bill_data.monthly_consumption_kwh)
-        self._print_solar_project(solar_project)
+        try:
+            solar_project = self._estimate_solar_project.execute(
+                SolarProjectEstimateInputDTO(
+                    monthly_consumption_kwh=bill_data.monthly_consumption_kwh,
+                    generation_per_kwp_month=self.generation_per_kwp_month,
+                    cost_per_kwp_brl=self.cost_per_kwp_brl,
+                )
+            )
+        except SimulationError as exc:
+            print(f"Erro na estimativa do projeto solar: {exc}")
+            return
+
+        self._print_solar_project_info(solar_project)
 
         confirmation = input("Confirma a simulação de financiamento? (s/n): ").strip().lower()
         if confirmation != "s":
@@ -95,7 +116,10 @@ class ChatCLI:
             return
 
         try:
-            simulation = self._create_simulation.execute(solar_project)
+            simulation = self._create_simulation.execute(
+                solar_project,
+                monthly_rate=self.monthly_rate,
+            )
         except SimulationError as exc:
             print(f"Erro na simulação: {exc}")
             return
@@ -142,7 +166,7 @@ class ChatCLI:
         print()
 
     @staticmethod
-    def _print_solar_project(project: SolarProject) -> None:
+    def _print_solar_project_info(project) -> None:  # type: ignore[no-untyped-def]
         print("--- Projeto solar estimado ---")
         print(f"Consumo mensal (kWh): {project.monthly_consumption_kwh}")
         print(f"Sistema estimado (kWp): {project.estimated_system_kwp:.2f}")
@@ -166,21 +190,6 @@ class ChatCLI:
         print(f"Parcela (R$): {_format_brl(offer.installment_amount)}")
         print(f"Quantidade de parcelas: {offer.number_of_installments}")
         print(f"Taxa mensal: {offer.monthly_rate}")
-
-
-def _estimate_solar_project(monthly_consumption_kwh: float) -> SolarProject:
-    estimated_system_kwp = monthly_consumption_kwh / _GENERATION_PER_KWP_MONTH
-    estimated_monthly_generation_kwh = estimated_system_kwp * _GENERATION_PER_KWP_MONTH
-    estimated_project_cost = (Decimal(str(estimated_system_kwp)) * _COST_PER_KWP).quantize(
-        Decimal("0.01"), rounding=ROUND_HALF_UP
-    )
-
-    return SolarProject(
-        monthly_consumption_kwh=monthly_consumption_kwh,
-        estimated_system_kwp=estimated_system_kwp,
-        estimated_monthly_generation_kwh=estimated_monthly_generation_kwh,
-        estimated_project_cost=estimated_project_cost,
-    )
 
 
 def _format_brl(value: Decimal | None) -> str:
