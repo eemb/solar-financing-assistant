@@ -38,6 +38,7 @@ select = ["E", "F", "I", "N", "UP", "B", "SIM"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = ["integration: marks tests as integration (requires network access)"]
 
 [tool.mypy]
 python_version = "3.11"
