@@ -9,6 +9,7 @@ from solar_financing_assistant.application.use_cases.create_financing_simulation
 from solar_financing_assistant.application.use_cases.extract_energy_bill_data import (
     ExtractEnergyBillDataUseCase,
 )
+from solar_financing_assistant.infrastructure.config import configure_logging
 from solar_financing_assistant.infrastructure.financing.local_financing_engine import (
     LocalFinancingEngine,
 )
@@ -20,6 +21,7 @@ from solar_financing_assistant.interface.cli.chat_cli import ChatCLI
 
 
 def main() -> None:
+    configure_logging()
     repository = InMemorySimulationRepository()
     extract_energy_bill = ExtractEnergyBillDataUseCase(MockOCRAdapter())
     create_simulation = CreateFinancingSimulationUseCase(

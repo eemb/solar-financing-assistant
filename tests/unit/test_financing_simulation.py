@@ -33,7 +33,7 @@ class TestFinancingSimulation:
     def test_no_offers_initially(self):
         sim = self._make_simulation()
         assert sim.offers == []
-        assert sim.best_offer is None
+        assert sim.get_best_offer() is None
 
     def test_add_offer(self):
         sim = self._make_simulation()
@@ -48,27 +48,51 @@ class TestFinancingSimulation:
         assert len(sim.offers) == 1
         assert sim.offers[0].approved_amount == Decimal("25000.00")
 
-    def test_best_offer_returns_lowest_total_cost(self):
+    def test_get_best_offer_default_key_is_lowest_installment(self):
         sim = self._make_simulation()
 
-        expensive = FinancingOffer(
+        high_installment = FinancingOffer(
             approved_amount=Decimal("30000.00"),
             installment_amount=Decimal("800.00"),
             number_of_installments=60,
             monthly_rate=Decimal("0.015"),
         )
-        cheap = FinancingOffer(
+        low_installment = FinancingOffer(
             approved_amount=Decimal("25000.00"),
             installment_amount=Decimal("600.00"),
             number_of_installments=48,
             monthly_rate=Decimal("0.008"),
         )
 
-        sim.add_offer(expensive)
-        sim.add_offer(cheap)
+        sim.add_offer(high_installment)
+        sim.add_offer(low_installment)
 
-        assert sim.best_offer is not None
-        assert sim.best_offer.approved_amount == Decimal("25000.00")
+        best = sim.get_best_offer()
+        assert best is not None
+        assert best.approved_amount == Decimal("25000.00")
+
+    def test_get_best_offer_accepts_custom_key(self):
+        sim = self._make_simulation()
+
+        fewer_installments = FinancingOffer(
+            approved_amount=Decimal("20000.00"),
+            installment_amount=Decimal("900.00"),
+            number_of_installments=24,
+            monthly_rate=Decimal("0.012"),
+        )
+        more_installments = FinancingOffer(
+            approved_amount=Decimal("20000.00"),
+            installment_amount=Decimal("500.00"),
+            number_of_installments=60,
+            monthly_rate=Decimal("0.019"),
+        )
+
+        sim.add_offer(fewer_installments)
+        sim.add_offer(more_installments)
+
+        best_by_total = sim.get_best_offer(key=lambda o: o.total_cost)
+        assert best_by_total is not None
+        assert best_by_total.number_of_installments == 24
 
     def test_mark_approved(self):
         sim = self._make_simulation()

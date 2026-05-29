@@ -20,9 +20,7 @@ class ExtractEnergyBillDataUseCase:
             )
 
         if dto.monthly_cost_brl is None or dto.monthly_cost_brl <= 0:
-            raise InvalidEnergyBillError(
-                "Monthly cost must be present and greater than zero."
-            )
+            raise InvalidEnergyBillError("Monthly cost must be present and greater than zero.")
 
         if dto.distributor is None or not dto.distributor.strip():
             raise InvalidEnergyBillError("Distributor name must be present.")

@@ -10,11 +10,14 @@ from solar_financing_assistant.domain.exceptions import InvalidEnergyBillError
 from solar_financing_assistant.infrastructure.ocr.mock_ocr_adapter import MockOCRAdapter
 
 
-async def test_extract_energy_bill_data_with_mock_ocr() -> None:
+async def test_extract_energy_bill_data_with_mock_ocr(tmp_path: Path) -> None:
+    bill_file = tmp_path / "fake-bill.pdf"
+    bill_file.write_bytes(b"%PDF-1.4 fake content")
+
     ocr = MockOCRAdapter()
     use_case = ExtractEnergyBillDataUseCase(ocr)
 
-    result = await use_case.execute(Path("fake-bill.pdf"))
+    result = await use_case.execute(bill_file)
 
     assert result.customer_name == "João da Silva"
     assert result.cpf == "12345678909"

@@ -51,7 +51,7 @@ def test_saves_simulation_in_repository() -> None:
 
     simulation = use_case.execute(_make_viable_project())
 
-    found = repo.find_by_id(simulation.simulation_id)
+    found = repo.find_by_id(simulation.id)
     assert found is simulation
 
 
@@ -62,7 +62,7 @@ def test_returns_non_null_offer() -> None:
 
     simulation = use_case.execute(_make_viable_project())
 
-    assert simulation.best_offer is not None
+    assert simulation.get_best_offer() is not None
 
 
 def test_raises_error_for_non_viable_project() -> None:

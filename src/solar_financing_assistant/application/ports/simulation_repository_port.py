@@ -1,15 +1,13 @@
-from abc import ABC, abstractmethod
+from typing import Protocol, runtime_checkable
+from uuid import UUID
 
 from solar_financing_assistant.domain.entities.financing_simulation import (
     FinancingSimulation,
 )
 
 
-class FinancingSimulationRepositoryPort(ABC):
-    @abstractmethod
-    def save(self, simulation: FinancingSimulation) -> None:
-        pass
+@runtime_checkable
+class FinancingSimulationRepositoryPort(Protocol):
+    def save(self, simulation: FinancingSimulation) -> None: ...
 
-    @abstractmethod
-    def find_by_id(self, simulation_id: str) -> FinancingSimulation | None:
-        pass
+    def find_by_id(self, id: UUID) -> FinancingSimulation | None: ...

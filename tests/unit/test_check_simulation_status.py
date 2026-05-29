@@ -12,18 +12,20 @@ from solar_financing_assistant.infrastructure.repositories.in_memory_simulation_
 
 def test_returns_existing_simulation() -> None:
     repo = InMemorySimulationRepository()
-    simulation = FinancingSimulation(simulation_id="SIM-42")
+    simulation = FinancingSimulation()
     repo.save(simulation)
 
     use_case = CheckSimulationStatusUseCase(repo)
-    result = use_case.execute("SIM-42")
+    result = use_case.execute(simulation.id)
 
     assert result is simulation
 
 
 def test_raises_simulation_error_when_not_found() -> None:
+    from uuid import uuid4
+
     repo = InMemorySimulationRepository()
     use_case = CheckSimulationStatusUseCase(repo)
 
     with pytest.raises(SimulationError, match="Simulation not found."):
-        use_case.execute("SIM-MISSING")
+        use_case.execute(uuid4())

@@ -1,5 +1,7 @@
 """Application settings loaded from environment variables / .env file."""
 
+import logging
+import logging.config
 from decimal import Decimal
 
 from pydantic import Field
@@ -28,3 +30,15 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def configure_logging() -> None:
+    """Configure root logger using the log_level from settings.
+
+    Call once at application startup (e.g. in ``__main__.py``).
+    """
+    logging.basicConfig(
+        level=settings.log_level.upper(),
+        format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+    )

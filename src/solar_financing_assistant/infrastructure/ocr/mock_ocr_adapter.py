@@ -9,6 +9,9 @@ from solar_financing_assistant.application.ports.ocr_port import OCRPort
 
 class MockOCRAdapter(OCRPort):
     async def extract_energy_bill_data(self, file_path: Path) -> ExtractedEnergyBillDataDTO:
+        if not file_path.exists():
+            raise FileNotFoundError(f"Energy bill file not found: {file_path}")
+
         return ExtractedEnergyBillDataDTO(
             customer_name="João da Silva",
             cpf="12345678909",
