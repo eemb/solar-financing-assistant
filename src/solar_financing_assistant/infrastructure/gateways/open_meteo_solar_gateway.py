@@ -1,6 +1,6 @@
 """Open-Meteo implementation of SolarPotentialGatewayPort."""
 
-import requests
+import httpx
 
 from solar_financing_assistant.application.dtos.solar_potential_dto import SolarPotentialDTO
 from solar_financing_assistant.application.ports.solar_potential_gateway_port import (
@@ -18,18 +18,18 @@ class OpenMeteoSolarGateway(SolarPotentialGatewayPort):
         self.base_url = base_url
         self.timeout_seconds = timeout_seconds
 
-    def get_solar_potential(self, latitude: float, longitude: float) -> SolarPotentialDTO:
-        response = requests.get(
-            self.base_url,
-            params={
-                "latitude": latitude,
-                "longitude": longitude,
-                "hourly": "shortwave_radiation",
-                "forecast_days": 1,
-                "timezone": "auto",
-            },
-            timeout=self.timeout_seconds,
-        )
+    async def get_solar_potential(self, latitude: float, longitude: float) -> SolarPotentialDTO:
+        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+            response = await client.get(
+                self.base_url,
+                params={
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "hourly": "shortwave_radiation",
+                    "forecast_days": 1,
+                    "timezone": "auto",
+                },
+            )
         response.raise_for_status()
 
         data: dict = response.json()

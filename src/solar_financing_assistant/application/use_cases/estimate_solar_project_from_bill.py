@@ -52,7 +52,7 @@ class EstimateSolarProjectFromBillUseCase:
             try:
                 address = await self._validate_address.execute(extracted_bill.zipcode)
                 if address.latitude is not None and address.longitude is not None:
-                    solar_potential = self._get_solar_potential.execute(
+                    solar_potential = await self._get_solar_potential.execute(
                         address.latitude,
                         address.longitude,
                     )

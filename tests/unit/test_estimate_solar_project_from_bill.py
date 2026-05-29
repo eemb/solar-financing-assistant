@@ -70,7 +70,7 @@ class FakeGetSolarPotentialUseCase:
         self._dto = dto
         self._raises = raises
 
-    def execute(self, latitude: float, longitude: float) -> SolarPotentialDTO:
+    async def execute(self, latitude: float, longitude: float) -> SolarPotentialDTO:
         if self._raises is not None:
             raise self._raises
         assert self._dto is not None

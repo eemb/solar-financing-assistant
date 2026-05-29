@@ -50,7 +50,9 @@ def main() -> None:
     )
     check_status = CheckSimulationStatusUseCase(repository)
 
-    address_gateway = BrasilApiAddressGateway()
+    address_gateway = BrasilApiAddressGateway(
+        timeout_seconds=app_settings.http_timeout_seconds,
+    )
     solar_gateway = OpenMeteoSolarGateway(
         timeout_seconds=app_settings.http_timeout_seconds,
     )
