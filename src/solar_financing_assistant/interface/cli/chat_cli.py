@@ -9,17 +9,14 @@ from uuid import UUID
 from solar_financing_assistant.application.dtos.extracted_energy_bill_data_dto import (
     ExtractedEnergyBillDataDTO,
 )
-from solar_financing_assistant.application.dtos.solar_project_estimate_input_dto import (
-    SolarProjectEstimateInputDTO,
-)
 from solar_financing_assistant.application.use_cases.check_simulation_status import (
     CheckSimulationStatusUseCase,
 )
 from solar_financing_assistant.application.use_cases.create_financing_simulation import (
     CreateFinancingSimulationUseCase,
 )
-from solar_financing_assistant.application.use_cases.estimate_solar_project import (
-    EstimateSolarProjectUseCase,
+from solar_financing_assistant.application.use_cases.estimate_solar_project_from_bill import (
+    EstimateSolarProjectFromBillUseCase,
 )
 from solar_financing_assistant.application.use_cases.extract_energy_bill_data import (
     ExtractEnergyBillDataUseCase,
@@ -42,17 +39,13 @@ class ChatCLI:
         extract_energy_bill: ExtractEnergyBillDataUseCase,
         create_simulation: CreateFinancingSimulationUseCase,
         check_status: CheckSimulationStatusUseCase,
-        estimate_solar_project: EstimateSolarProjectUseCase,
-        generation_per_kwp_month: float,
-        cost_per_kwp_brl: Decimal,
+        estimate_solar_project_from_bill: EstimateSolarProjectFromBillUseCase,
         monthly_rate: Decimal,
     ) -> None:
         self._extract_energy_bill = extract_energy_bill
         self._create_simulation = create_simulation
         self._check_status = check_status
-        self._estimate_solar_project = estimate_solar_project
-        self.generation_per_kwp_month = generation_per_kwp_month
-        self.cost_per_kwp_brl = cost_per_kwp_brl
+        self._estimate_solar_project_from_bill = estimate_solar_project_from_bill
         self.monthly_rate = monthly_rate
 
     def run(self) -> None:
@@ -97,12 +90,8 @@ class ChatCLI:
         self._print_extracted_bill_data(bill_data)
 
         try:
-            solar_project = self._estimate_solar_project.execute(
-                SolarProjectEstimateInputDTO(
-                    monthly_consumption_kwh=bill_data.monthly_consumption_kwh,
-                    generation_per_kwp_month=self.generation_per_kwp_month,
-                    cost_per_kwp_brl=self.cost_per_kwp_brl,
-                )
+            solar_project = asyncio.run(
+                self._estimate_solar_project_from_bill.execute(bill_data)
             )
         except SimulationError as exc:
             print(f"Erro na estimativa do projeto solar: {exc}")
