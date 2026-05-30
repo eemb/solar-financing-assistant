@@ -3,6 +3,9 @@
 from solar_financing_assistant.application.use_cases.check_simulation_status import (
     CheckSimulationStatusUseCase,
 )
+from solar_financing_assistant.application.use_cases.complete_energy_bill_data import (
+    CompleteEnergyBillDataUseCase,
+)
 from solar_financing_assistant.application.use_cases.create_financing_simulation import (
     CreateFinancingSimulationUseCase,
 )
@@ -14,6 +17,9 @@ from solar_financing_assistant.application.use_cases.estimate_solar_project_from
 )
 from solar_financing_assistant.application.use_cases.extract_energy_bill_data import (
     ExtractEnergyBillDataUseCase,
+)
+from solar_financing_assistant.application.use_cases.get_missing_energy_bill_fields import (
+    GetMissingEnergyBillFieldsUseCase,
 )
 from solar_financing_assistant.application.use_cases.get_solar_potential import (
     GetSolarPotentialUseCase,
@@ -77,6 +83,8 @@ def main() -> None:
         check_status=check_status,
         estimate_solar_project_from_bill=estimate_solar_project_from_bill,
         monthly_rate=app_settings.monthly_rate,
+        get_missing_energy_bill_fields_use_case=GetMissingEnergyBillFieldsUseCase(),
+        complete_energy_bill_data_use_case=CompleteEnergyBillDataUseCase(),
     ).run()
 
 
