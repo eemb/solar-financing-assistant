@@ -31,7 +31,7 @@ from solar_financing_assistant.infrastructure.gateways.brasilapi_address_gateway
 from solar_financing_assistant.infrastructure.gateways.open_meteo_solar_gateway import (
     OpenMeteoSolarGateway,
 )
-from solar_financing_assistant.infrastructure.ocr.mock_ocr_adapter import MockOCRAdapter
+from solar_financing_assistant.infrastructure.ocr.ocr_adapter_factory import create_ocr_adapter
 from solar_financing_assistant.infrastructure.repositories.in_memory_simulation_repository import (
     InMemorySimulationRepository,
 )
@@ -43,7 +43,8 @@ def main() -> None:
     app_settings = Settings()
 
     repository = InMemorySimulationRepository()
-    extract_energy_bill = ExtractEnergyBillDataUseCase(MockOCRAdapter())
+    ocr_adapter = create_ocr_adapter(app_settings.ocr_provider)
+    extract_energy_bill = ExtractEnergyBillDataUseCase(ocr_adapter)
     create_simulation = CreateFinancingSimulationUseCase(
         LocalFinancingEngine(),
         repository,

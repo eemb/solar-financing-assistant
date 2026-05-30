@@ -34,6 +34,10 @@ class Settings(BaseSettings):
         default=10.0,
         description="Default timeout (seconds) for all outbound HTTP calls.",
     )
+    ocr_provider: str = Field(
+        default="mock",
+        description="OCR provider to use. Options: 'mock', 'tesseract'.",
+    )
     performance_ratio: float = Field(
         default=0.75,
         description=(
