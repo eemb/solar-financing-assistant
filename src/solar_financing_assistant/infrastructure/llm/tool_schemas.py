@@ -75,10 +75,13 @@ TOOL_SCHEMAS: list[dict] = [
             "name": "simulate_financing_from_bill",
             "description": (
                 "Run the full solar financing simulation pipeline from a complete energy bill DTO. "
-                "Call this tool only after all required fields are present "
-                "(missing_fields is empty). "
-                "Returns either a simulation result with status='approved' and the financing "
-                "offer details, or status='missing_fields' if data is still incomplete, "
+                "Call this tool ONLY after: (a) all required fields are present "
+                "(missing_fields is empty), AND (b) the user has explicitly confirmed "
+                "they want to proceed with the simulation. "
+                "After this tool returns a simulation_id, you MUST immediately call "
+                "check_simulation_status with that ID to confirm the status before "
+                "presenting results to the user. "
+                "Returns status='missing_fields' if data is still incomplete, "
                 "or status='error' if the simulation fails."
             ),
             "parameters": {
@@ -102,10 +105,13 @@ TOOL_SCHEMAS: list[dict] = [
             "name": "check_simulation_status",
             "description": (
                 "Retrieve the current status of a previously created financing simulation. "
-                "Call this tool when the user asks about the result or status of a simulation "
-                "and provides a simulation ID (UUID). "
-                "Returns the simulation status, solar project data, "
-                "and financing offer if approved."
+                "ALWAYS call this tool after simulate_financing_from_bill returns a "
+                "simulation_id — use the returned ID to confirm the official status via "
+                "this tool before presenting any results to the user. "
+                "Also call this tool when the user asks about the result or status of a "
+                "simulation and provides a simulation ID (UUID). "
+                "Returns the simulation status, solar project data, and financing offer "
+                "if approved."
             ),
             "parameters": {
                 "type": "object",

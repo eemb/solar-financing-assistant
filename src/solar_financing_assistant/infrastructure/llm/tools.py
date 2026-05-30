@@ -71,13 +71,24 @@ def _offer_to_dict(offer: FinancingOffer) -> dict:
     }
 
 
-def _simulation_to_dict(simulation: FinancingSimulation) -> dict:
+def _simulation_to_dict(
+    simulation: FinancingSimulation,
+    solar_potential_source: str = "unknown",
+) -> dict:
     status = simulation.status.value
     offer = simulation.get_best_offer()
     return {
         "simulation_id": str(simulation.id),
         "status": status,
         "message": _STATUS_MESSAGES.get(status, "Status desconhecido."),
+        "solar_potential_source": solar_potential_source,
+        "solar_potential_fallback_warning": (
+            "O potencial solar real não pôde ser consultado. "
+            "A estimativa usou o valor padrão de geração (fallback). "
+            "Os resultados podem variar com dados reais de irradiação solar."
+        )
+        if solar_potential_source == "fallback"
+        else None,
         "solar_project": _solar_project_to_dict(simulation.solar_project)
         if simulation.solar_project
         else None,
@@ -106,6 +117,7 @@ class FinancingAssistantTools:
         create_financing_simulation_use_case: CreateFinancingSimulationUseCase,
         check_simulation_status_use_case: CheckSimulationStatusUseCase,
         monthly_rate: Decimal,
+        ocr_provider_name: str = "ocr",
     ) -> None:
         self._extract_bill = extract_energy_bill_data_use_case
         self._get_missing = get_missing_energy_bill_fields_use_case
@@ -114,6 +126,7 @@ class FinancingAssistantTools:
         self._create_simulation = create_financing_simulation_use_case
         self._check_status = check_simulation_status_use_case
         self.monthly_rate = monthly_rate
+        self._ocr_provider_name = ocr_provider_name
 
     # ------------------------------------------------------------------
     # Tool 1 — extract_energy_bill_data
@@ -121,16 +134,28 @@ class FinancingAssistantTools:
 
     async def extract_energy_bill_data(self, file_path: str) -> dict:
         """Extract bill data from an image/PDF and report which fields are missing."""
+        path = Path(file_path)
+        if not path.exists():
+            return {"status": "error", "message": f"Arquivo não encontrado: {file_path}"}
+
         try:
-            extracted_bill = await self._extract_bill.execute(Path(file_path))
+            extracted_bill = await self._extract_bill.execute(path)
         except (DomainError, FileNotFoundError) as exc:
             return {"status": "error", "message": str(exc)}
 
         missing_fields = self._get_missing.execute(extracted_bill)
-        return {
+        result: dict = {
             "data": extracted_bill.model_dump(mode="json"),
             "missing_fields": missing_fields,
+            "data_source": self._ocr_provider_name,
         }
+        if self._ocr_provider_name == "mock":
+            result["mock_data_warning"] = (
+                "ATENÇÃO: Os dados retornados são FICTÍCIOS (gerados pelo MockOCRAdapter). "
+                "Eles NÃO foram extraídos da conta real enviada pelo usuário. "
+                "Informe claramente ao usuário que os dados são de exemplo antes de prosseguir."
+            )
+        return result
 
     # ------------------------------------------------------------------
     # Tool 2 — complete_energy_bill_data
@@ -170,7 +195,8 @@ class FinancingAssistantTools:
             return {"status": "missing_fields", "missing_fields": missing_fields}
 
         try:
-            solar_project = await self._estimate_project.execute(extracted_bill)
+            project_result = await self._estimate_project.execute_with_metadata(extracted_bill)
+            solar_project, solar_potential_source = project_result
             simulation = self._create_simulation.execute(
                 solar_project,
                 monthly_rate=self.monthly_rate,
@@ -178,7 +204,7 @@ class FinancingAssistantTools:
         except DomainError as exc:
             return {"status": "error", "message": str(exc)}
 
-        return _simulation_to_dict(simulation)
+        return _simulation_to_dict(simulation, solar_potential_source=solar_potential_source)
 
     # ------------------------------------------------------------------
     # Tool 4 — check_simulation_status

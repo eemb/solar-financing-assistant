@@ -208,7 +208,7 @@ def test_user_provides_empty_file_path() -> None:
 @pytest.mark.integration
 def test_user_provides_nonexistent_file(tmp_path: Path) -> None:
     """CLI must handle FileNotFoundError from the OCR adapter gracefully — no traceback."""
-    cli, _ = _make_cli()
+    cli, _ = _make_cli(_PartialMockOCRAdapter())
     nonexistent = tmp_path / "does_not_exist.pdf"
 
     out = _run(cli, ["1", str(nonexistent), "0"])

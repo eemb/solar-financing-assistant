@@ -93,13 +93,17 @@ class FinancingAssistantAgent:
             )
 
         # ------------------------------------------------------------------
-        # Second model call — produce the final response
+        # Second model call — produce the final human-readable response.
+        # tool_choice="none" prevents the model from issuing another tool
+        # call here, which would create a recursive loop and double costs.
+        # If multi-step reasoning is needed in the future, replace this with
+        # a streaming synthesis call or a proper ReAct loop.
         # ------------------------------------------------------------------
         final_response = await self._client.chat.completions.create(
             model=self._model,
             messages=messages,  # type: ignore[arg-type]
             tools=TOOL_SCHEMAS,  # type: ignore[arg-type]
-            tool_choice="auto",
+            tool_choice="none",
         )
 
         final_message = final_response.choices[0].message
