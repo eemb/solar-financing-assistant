@@ -71,8 +71,13 @@ async def test_supported_image_returns_extracted_dto(
 
     monkeypatch.setattr("PIL.Image.open", lambda _path: MagicMock())
     monkeypatch.setattr(
+        TesseractOCRAdapter,
+        "_preprocess_image",
+        lambda self, img: img,
+    )
+    monkeypatch.setattr(
         "pytesseract.image_to_string",
-        lambda _image, lang: FAKE_BILL_TEXT,
+        lambda _image, **kwargs: FAKE_BILL_TEXT,
     )
 
     adapter = TesseractOCRAdapter()
@@ -96,8 +101,13 @@ async def test_image_ocr_result_is_fully_parsed(
 
     monkeypatch.setattr("PIL.Image.open", lambda _path: MagicMock())
     monkeypatch.setattr(
+        TesseractOCRAdapter,
+        "_preprocess_image",
+        lambda self, img: img,
+    )
+    monkeypatch.setattr(
         "pytesseract.image_to_string",
-        lambda _image, lang: FAKE_BILL_TEXT,
+        lambda _image, **kwargs: FAKE_BILL_TEXT,
     )
 
     adapter = TesseractOCRAdapter()
@@ -129,8 +139,13 @@ async def test_custom_parser_is_used(
 
     monkeypatch.setattr("PIL.Image.open", lambda _path: MagicMock())
     monkeypatch.setattr(
+        TesseractOCRAdapter,
+        "_preprocess_image",
+        lambda self, img: img,
+    )
+    monkeypatch.setattr(
         "pytesseract.image_to_string",
-        lambda _image, lang: FAKE_BILL_TEXT,
+        lambda _image, **kwargs: FAKE_BILL_TEXT,
     )
 
     custom_parser = EnergyBillTextParser()
