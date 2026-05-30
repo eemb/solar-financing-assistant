@@ -34,9 +34,14 @@ class FinancingSimulation:
     customer: Customer | None = None
     energy_bill: EnergyBill | None = None
     solar_project: SolarProject | None = None
-    offers: list[FinancingOffer] = field(default_factory=list)
+    _offers: list[FinancingOffer] = field(default_factory=list)
     status: SimulationStatus = SimulationStatus.PENDING
     id: UUID = field(default_factory=uuid4)
+
+    @property
+    def offers(self) -> tuple[FinancingOffer, ...]:
+        """Read-only view of offers; mutate only via add_offer() / approve()."""
+        return tuple(self._offers)
 
     def get_best_offer(
         self,
@@ -49,13 +54,13 @@ class FinancingSimulation:
         example, to minimise total interest cost pass
         ``key=lambda o: o.total_cost``.
         """
-        if not self.offers:
+        if not self._offers:
             return None
         effective_key = key if key is not None else lambda o: o.installment_amount
-        return min(self.offers, key=effective_key)
+        return min(self._offers, key=effective_key)
 
     def add_offer(self, offer: FinancingOffer) -> None:
-        self.offers.append(offer)
+        self._offers.append(offer)
 
     def approve(self, offer: FinancingOffer) -> None:
         self.add_offer(offer)

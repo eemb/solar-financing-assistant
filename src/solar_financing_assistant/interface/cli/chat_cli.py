@@ -100,6 +100,9 @@ class ChatCLI:
 
         try:
             bill_data = await self._extract_energy_bill.execute(file_path)
+        except FileNotFoundError:
+            print(f"Arquivo não encontrado: {file_path}")
+            return
         except InvalidEnergyBillError as exc:
             print(f"Erro na conta de energia: {exc}")
             return
@@ -209,7 +212,7 @@ class ChatCLI:
     def _print_simulation_result(self, simulation: FinancingSimulation) -> None:
         print()
         print("--- Resultado da simulação ---")
-        print(f"ID: {simulation.id}")
+        print(f"ID para consulta: {simulation.id}")
         print(f"Status: {simulation.status.value}")
         offer = simulation.get_best_offer()
         if offer is not None:

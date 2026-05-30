@@ -1,8 +1,15 @@
 """Use case for validating and fetching address data by zipcode."""
 
+import logging
+
 from solar_financing_assistant.application.ports.address_gateway_port import AddressGatewayPort
 from solar_financing_assistant.domain.entities.address import Address
 from solar_financing_assistant.domain.exceptions import InvalidAddressError
+
+logger = logging.getLogger(__name__)
+
+# Fields that are expected to be present for a meaningful address.
+_DISPLAY_FIELDS = ("city", "state", "street", "neighborhood")
 
 
 class ValidateAddressUseCase:
@@ -18,7 +25,7 @@ class ValidateAddressUseCase:
         if not dto.zipcode:
             raise InvalidAddressError("Zipcode not found.")
 
-        return Address(
+        address = Address(
             zip_code=dto.zipcode,
             street=dto.street or "",
             number=None,
@@ -28,3 +35,14 @@ class ValidateAddressUseCase:
             latitude=dto.latitude,
             longitude=dto.longitude,
         )
+
+        missing = [f for f in _DISPLAY_FIELDS if not getattr(address, f)]
+        if missing:
+            logger.warning(
+                "Address for zipcode %s is missing display fields: %s. "
+                "Output may appear incomplete.",
+                zipcode,
+                ", ".join(missing),
+            )
+
+        return address
