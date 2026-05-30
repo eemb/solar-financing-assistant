@@ -1,15 +1,16 @@
 """EnergyBill entity."""
 
 from dataclasses import dataclass, field
+from decimal import Decimal
 from uuid import UUID, uuid4
 
 
 @dataclass(frozen=True)
 class EnergyBill:
     monthly_consumption_kwh: float
-    monthly_cost_brl: float
+    monthly_cost_brl: Decimal
     distributor: str
-    tariff_brl_per_kwh: float
+    tariff_brl_per_kwh: Decimal
     reference_month: str
     id: UUID = field(default_factory=uuid4)
 
@@ -18,5 +19,5 @@ class EnergyBill:
         return self.monthly_consumption_kwh * 12
 
     @property
-    def annual_cost_brl(self) -> float:
+    def annual_cost_brl(self) -> Decimal:
         return self.monthly_cost_brl * 12

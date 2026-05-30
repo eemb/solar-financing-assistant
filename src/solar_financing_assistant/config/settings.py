@@ -34,6 +34,14 @@ class Settings(BaseSettings):
         default=10.0,
         description="Default timeout (seconds) for all outbound HTTP calls.",
     )
+    performance_ratio: float = Field(
+        default=0.75,
+        description=(
+            "Solar system performance ratio applied when converting irradiation to generation "
+            "(accounts for panel efficiency, temperature losses, and shading). "
+            "Typical range: 0.70–0.85."
+        ),
+    )
 
 
 settings = Settings()
