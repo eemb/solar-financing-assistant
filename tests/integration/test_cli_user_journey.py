@@ -229,13 +229,13 @@ def test_user_fills_missing_fields_manually(bill_file: Path) -> None:
         [
             "1",
             str(bill_file),
-            "Maria Souza",      # customer_name
-            "529.982.247-25",   # cpf  (valid CPF)
-            "52000-000",        # zipcode
-            "0,8455",           # tariff_brl_per_kwh
-            "2026-05",          # reference_month
-            "s",                # confirm simulation
-            "0",                # exit
+            "Maria Souza",  # customer_name
+            "529.982.247-25",  # cpf  (valid CPF)
+            "52000-000",  # zipcode
+            "0,8455",  # tariff_brl_per_kwh
+            "2026-05",  # reference_month
+            "s",  # confirm simulation
+            "0",  # exit
         ],
     )
 
