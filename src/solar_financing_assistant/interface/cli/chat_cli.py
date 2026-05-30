@@ -51,12 +51,14 @@ class ChatCLI:
         monthly_rate: Decimal,
         get_missing_energy_bill_fields_use_case: GetMissingEnergyBillFieldsPort,
         complete_energy_bill_data_use_case: CompleteEnergyBillDataPort,
+        number_of_installments: int = 60,
     ) -> None:
         self._extract_energy_bill = extract_energy_bill
         self._create_simulation = create_simulation
         self._check_status = check_status
         self._estimate_solar_project_from_bill = estimate_solar_project_from_bill
-        self.monthly_rate = monthly_rate
+        self._monthly_rate = monthly_rate
+        self._number_of_installments = number_of_installments
         self._get_missing_fields = get_missing_energy_bill_fields_use_case
         self._complete_bill_data = complete_energy_bill_data_use_case
 
@@ -122,7 +124,8 @@ class ChatCLI:
         try:
             simulation = self._create_simulation.execute(
                 solar_project,
-                monthly_rate=self.monthly_rate,
+                number_of_installments=self._number_of_installments,
+                monthly_rate=self._monthly_rate,
             )
         except SimulationError as exc:
             print(f"Erro na simulação: {exc}")
@@ -206,8 +209,7 @@ class ChatCLI:
     def _print_simulation_result(self, simulation: FinancingSimulation) -> None:
         print()
         print("--- Resultado da simulação ---")
-        print(f"Referência: SIM-{simulation.id}")
-        print(f"ID para consulta: {simulation.id}")
+        print(f"ID: {simulation.id}")
         print(f"Status: {simulation.status.value}")
         offer = simulation.get_best_offer()
         if offer is not None:

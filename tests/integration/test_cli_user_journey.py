@@ -148,7 +148,6 @@ def test_user_simulates_financing_full_journey(bill_file: Path) -> None:
     assert "Neoenergia Pernambuco" in out
     assert "Projeto solar estimado" in out
     assert "Resultado da simulação" in out
-    assert "SIM-" in out
     assert "Parcela (R$):" in out
     assert "Status: approved" in out
 
@@ -169,7 +168,7 @@ def test_user_checks_status_of_existing_simulation(bill_file: Path) -> None:
 
     # First session: create a simulation and capture the UUID printed to stdout.
     out1 = _run(cli, ["1", str(bill_file), "s", "0"])
-    match = re.search(r"ID para consulta: ([0-9a-f-]{36})", out1)
+    match = re.search(r"ID: ([0-9a-f-]{36})", out1)
     assert match is not None, f"UUID not found in output:\n{out1}"
     sim_uuid = match.group(1)
 

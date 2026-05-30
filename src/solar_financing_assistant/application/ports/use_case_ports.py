@@ -22,8 +22,8 @@ class CreateFinancingSimulationPort(Protocol):
     def execute(
         self,
         solar_project: SolarProject,
-        number_of_installments: int = 60,
-        monthly_rate: Decimal = Decimal("0.019"),
+        number_of_installments: int,
+        monthly_rate: Decimal,
     ) -> FinancingSimulation: ...
 
 

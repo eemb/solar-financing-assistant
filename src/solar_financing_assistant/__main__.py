@@ -1,5 +1,13 @@
 """Entry point for `python -m solar_financing_assistant`."""
 
+from solar_financing_assistant.application.ports.use_case_ports import (
+    CheckSimulationStatusPort,
+    CompleteEnergyBillDataPort,
+    CreateFinancingSimulationPort,
+    EstimateSolarProjectFromBillPort,
+    ExtractEnergyBillDataPort,
+    GetMissingEnergyBillFieldsPort,
+)
 from solar_financing_assistant.application.use_cases.check_simulation_status import (
     CheckSimulationStatusUseCase,
 )
@@ -50,12 +58,13 @@ def main() -> None:
 
     repository = InMemorySimulationRepository()
     ocr_adapter = create_ocr_adapter(app_settings.ocr_provider)
-    extract_energy_bill = ExtractEnergyBillDataUseCase(ocr_adapter)
-    create_simulation = CreateFinancingSimulationUseCase(
+
+    extract_energy_bill: ExtractEnergyBillDataPort = ExtractEnergyBillDataUseCase(ocr_adapter)
+    create_simulation: CreateFinancingSimulationPort = CreateFinancingSimulationUseCase(
         LocalFinancingEngine(),
         repository,
     )
-    check_status = CheckSimulationStatusUseCase(repository)
+    check_status: CheckSimulationStatusPort = CheckSimulationStatusUseCase(repository)
 
     address_gateway = BrasilApiAddressGateway(
         timeout_seconds=app_settings.http_timeout_seconds,
@@ -69,13 +78,18 @@ def main() -> None:
     get_solar_potential = GetSolarPotentialUseCase(solar_gateway)
     estimate_solar_project = EstimateSolarProjectUseCase()
 
-    estimate_solar_project_from_bill = EstimateSolarProjectFromBillUseCase(
-        validate_address_use_case=validate_address,
-        get_solar_potential_use_case=get_solar_potential,
-        estimate_solar_project_use_case=estimate_solar_project,
-        fallback_generation_per_kwp_month=app_settings.generation_per_kwp_month,
-        cost_per_kwp_brl=app_settings.cost_per_kwp_brl,
+    estimate_solar_project_from_bill: EstimateSolarProjectFromBillPort = (
+        EstimateSolarProjectFromBillUseCase(
+            validate_address_use_case=validate_address,
+            get_solar_potential_use_case=get_solar_potential,
+            estimate_solar_project_use_case=estimate_solar_project,
+            fallback_generation_per_kwp_month=app_settings.generation_per_kwp_month,
+            cost_per_kwp_brl=app_settings.cost_per_kwp_brl,
+        )
     )
+
+    get_missing_fields: GetMissingEnergyBillFieldsPort = GetMissingEnergyBillFieldsUseCase()
+    complete_bill_data: CompleteEnergyBillDataPort = CompleteEnergyBillDataUseCase()
 
     ChatCLI(
         extract_energy_bill=extract_energy_bill,
@@ -83,8 +97,8 @@ def main() -> None:
         check_status=check_status,
         estimate_solar_project_from_bill=estimate_solar_project_from_bill,
         monthly_rate=app_settings.monthly_rate,
-        get_missing_energy_bill_fields_use_case=GetMissingEnergyBillFieldsUseCase(),
-        complete_energy_bill_data_use_case=CompleteEnergyBillDataUseCase(),
+        get_missing_energy_bill_fields_use_case=get_missing_fields,
+        complete_energy_bill_data_use_case=complete_bill_data,
     ).run()
 
 

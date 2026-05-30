@@ -6,11 +6,11 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class Address:
     street: str
-    number: str | None
     neighborhood: str
     city: str
     state: str
     zip_code: str
+    number: str | None = None
     complement: str = ""
     latitude: float | None = None
     longitude: float | None = None
