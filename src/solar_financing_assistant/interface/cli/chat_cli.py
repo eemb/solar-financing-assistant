@@ -12,6 +12,9 @@ from solar_financing_assistant.application.dtos.extracted_energy_bill_data_dto i
 from solar_financing_assistant.application.use_cases.check_simulation_status import (
     CheckSimulationStatusUseCase,
 )
+from solar_financing_assistant.application.use_cases.complete_energy_bill_data import (
+    CompleteEnergyBillDataUseCase,
+)
 from solar_financing_assistant.application.use_cases.create_financing_simulation import (
     CreateFinancingSimulationUseCase,
 )
@@ -20,6 +23,9 @@ from solar_financing_assistant.application.use_cases.estimate_solar_project_from
 )
 from solar_financing_assistant.application.use_cases.extract_energy_bill_data import (
     ExtractEnergyBillDataUseCase,
+)
+from solar_financing_assistant.application.use_cases.get_missing_energy_bill_fields import (
+    GetMissingEnergyBillFieldsUseCase,
 )
 from solar_financing_assistant.domain.entities.financing_offer import FinancingOffer
 from solar_financing_assistant.domain.entities.financing_simulation import (
@@ -32,6 +38,18 @@ from solar_financing_assistant.domain.exceptions import (
 
 logger = logging.getLogger(__name__)
 
+# Human-readable labels for each required bill field shown in prompts.
+_FIELD_LABELS: dict[str, str] = {
+    "customer_name": "Nome do cliente",
+    "cpf": "CPF",
+    "zipcode": "CEP",
+    "distributor": "Distribuidora",
+    "monthly_consumption_kwh": "Consumo mensal (kWh)",
+    "monthly_cost_brl": "Custo mensal (R$, ex: 380,50)",
+    "tariff_brl_per_kwh": "Tarifa (R$/kWh, ex: 0,8455)",
+    "reference_month": "Mês de referência (AAAA-MM)",
+}
+
 
 class ChatCLI:
     def __init__(
@@ -41,12 +59,16 @@ class ChatCLI:
         check_status: CheckSimulationStatusUseCase,
         estimate_solar_project_from_bill: EstimateSolarProjectFromBillUseCase,
         monthly_rate: Decimal,
+        get_missing_energy_bill_fields_use_case: GetMissingEnergyBillFieldsUseCase,
+        complete_energy_bill_data_use_case: CompleteEnergyBillDataUseCase,
     ) -> None:
         self._extract_energy_bill = extract_energy_bill
         self._create_simulation = create_simulation
         self._check_status = check_status
         self._estimate_solar_project_from_bill = estimate_solar_project_from_bill
         self.monthly_rate = monthly_rate
+        self._get_missing_fields = get_missing_energy_bill_fields_use_case
+        self._complete_bill_data = complete_energy_bill_data_use_case
 
     def run(self) -> None:
         asyncio.run(self._run())
@@ -92,6 +114,8 @@ class ChatCLI:
 
         self._print_extracted_bill_data(bill_data)
 
+        bill_data = self._ask_missing_fields(bill_data)
+
         try:
             solar_project = await self._estimate_solar_project_from_bill.execute(bill_data)
         except SimulationError as exc:
@@ -115,6 +139,31 @@ class ChatCLI:
             return
 
         self._print_simulation_result(simulation)
+
+    def _ask_missing_fields(
+        self, bill_data: ExtractedEnergyBillDataDTO
+    ) -> ExtractedEnergyBillDataDTO:
+        missing = self._get_missing_fields.execute(bill_data)
+        if not missing:
+            return bill_data
+
+        labels = [_FIELD_LABELS.get(f, f) for f in missing]
+        print(f"Atenção: campos ausentes na conta: {', '.join(labels)}")
+        print("Informe os valores manualmente:")
+
+        manual_values: dict[str, str] = {}
+        for field in missing:
+            label = _FIELD_LABELS.get(field, field)
+            value = input(f"  {label}: ").strip()
+            manual_values[field] = value
+
+        completed = self._complete_bill_data.execute(bill_data, manual_values)
+
+        print()
+        print("--- Dados atualizados da conta ---")
+        self._print_extracted_bill_data(completed)
+
+        return completed
 
     def _consult_status(self) -> None:
         id_str = input("ID da simulação (UUID): ").strip()

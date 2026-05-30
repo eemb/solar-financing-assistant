@@ -3,6 +3,9 @@
 from solar_financing_assistant.application.use_cases.check_simulation_status import (
     CheckSimulationStatusUseCase,
 )
+from solar_financing_assistant.application.use_cases.complete_energy_bill_data import (
+    CompleteEnergyBillDataUseCase,
+)
 from solar_financing_assistant.application.use_cases.create_financing_simulation import (
     CreateFinancingSimulationUseCase,
 )
@@ -14,6 +17,9 @@ from solar_financing_assistant.application.use_cases.estimate_solar_project_from
 )
 from solar_financing_assistant.application.use_cases.extract_energy_bill_data import (
     ExtractEnergyBillDataUseCase,
+)
+from solar_financing_assistant.application.use_cases.get_missing_energy_bill_fields import (
+    GetMissingEnergyBillFieldsUseCase,
 )
 from solar_financing_assistant.application.use_cases.get_solar_potential import (
     GetSolarPotentialUseCase,
@@ -31,7 +37,7 @@ from solar_financing_assistant.infrastructure.gateways.brasilapi_address_gateway
 from solar_financing_assistant.infrastructure.gateways.open_meteo_solar_gateway import (
     OpenMeteoSolarGateway,
 )
-from solar_financing_assistant.infrastructure.ocr.mock_ocr_adapter import MockOCRAdapter
+from solar_financing_assistant.infrastructure.ocr.ocr_adapter_factory import create_ocr_adapter
 from solar_financing_assistant.infrastructure.repositories.in_memory_simulation_repository import (
     InMemorySimulationRepository,
 )
@@ -43,7 +49,8 @@ def main() -> None:
     app_settings = Settings()
 
     repository = InMemorySimulationRepository()
-    extract_energy_bill = ExtractEnergyBillDataUseCase(MockOCRAdapter())
+    ocr_adapter = create_ocr_adapter(app_settings.ocr_provider)
+    extract_energy_bill = ExtractEnergyBillDataUseCase(ocr_adapter)
     create_simulation = CreateFinancingSimulationUseCase(
         LocalFinancingEngine(),
         repository,
@@ -76,6 +83,8 @@ def main() -> None:
         check_status=check_status,
         estimate_solar_project_from_bill=estimate_solar_project_from_bill,
         monthly_rate=app_settings.monthly_rate,
+        get_missing_energy_bill_fields_use_case=GetMissingEnergyBillFieldsUseCase(),
+        complete_energy_bill_data_use_case=CompleteEnergyBillDataUseCase(),
     ).run()
 
 
