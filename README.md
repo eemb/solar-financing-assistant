@@ -1,6 +1,6 @@
 # Solar Financing Assistant
 
-Assistente conversacional para simulação de financiamento de energia solar residencial.
+Assistente de linha de comando para simulação de financiamento de energia solar residencial. A partir de uma conta de energia, o assistente estima o sistema fotovoltaico necessário, consulta o potencial solar do endereço via Open-Meteo e calcula as parcelas pelo método Price.
 
 ## Requisitos
 
@@ -17,26 +17,63 @@ pip install -e ".[dev]"
 cp .env.example .env
 ```
 
+Edite o `.env` conforme necessário. As variáveis disponíveis estão documentadas em `.env.example`.
+
 ## Executar
 
 ```bash
 python -m solar_financing_assistant
 ```
 
+O assistente apresenta um menu interativo com duas opções:
+
+1. **Simular financiamento** — informa o caminho de uma conta de energia (PDF ou imagem), o sistema estima o projeto solar e calcula as parcelas
+2. **Consultar status** — informe o UUID exibido ao final da simulação para ver o resultado
+
+## Configuração
+
+| Variável | Padrão | Descrição |
+|---|---|---|
+| `MONTHLY_RATE` | `0.019` | Taxa de juros mensal (1,9% a.m.) |
+| `GENERATION_PER_KWP_MONTH` | `120.0` | Geração estimada por kWp/mês (kWh) — usado como fallback se o CEP não retornar coordenadas |
+| `COST_PER_KWP_BRL` | `5000.00` | Custo de instalação por kWp (R$) |
+| `HTTP_TIMEOUT_SECONDS` | `10.0` | Timeout para chamadas HTTP externas |
+| `LOG_LEVEL` | `INFO` | Nível de log (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+
 ## Testes
 
 ```bash
-pytest
+pytest                  # todos os testes
+pytest --cov            # com cobertura
+pytest tests/unit/      # apenas unitários
 ```
 
-## Estrutura
+## Estrutura do projeto
 
 ```
-src/
-  solar_financing_assistant/
-    __init__.py
-    __main__.py
+src/solar_financing_assistant/
+├── domain/             # entidades e exceções — sem dependências externas
+├── application/
+│   ├── dtos/           # objetos de transferência de dados (Pydantic)
+│   ├── ports/          # contratos (Protocol) para infraestrutura e use cases
+│   └── use_cases/      # lógica de aplicação
+├── infrastructure/
+│   ├── financing/      # motor de cálculo Price local
+│   ├── gateways/       # BrasilAPI (CEP) e Open-Meteo (potencial solar)
+│   ├── ocr/            # adaptador OCR (mock — substituir pelo adaptador real)
+│   └── repositories/   # repositório em memória
+├── interface/
+│   └── cli/            # ChatCLI — interface de linha de comando
+└── config/             # Settings via pydantic-settings
 tests/
-  unit/
-  integration/
+├── unit/
+└── integration/        # a preencher com testes de adaptadores reais
 ```
+
+## Arquitetura
+
+O projeto segue arquitetura hexagonal (Ports & Adapters):
+
+- **Domínio** não conhece nenhuma camada externa
+- **Ports** definem contratos como `Protocol` — a interface layer depende de ports, não de implementações concretas
+- **Adaptadores** de infraestrutura podem ser trocados sem alterar use cases (ex: substituir `MockOCRAdapter` por um adapter OpenAI Vision)
