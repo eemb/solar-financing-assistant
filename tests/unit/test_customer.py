@@ -7,7 +7,7 @@ class TestCustomer:
     def test_creation_without_address(self):
         customer = Customer(
             name="João Silva",
-            document="123.456.789-00",
+            document="123.456.789-09",
             email="joao@email.com",
             phone="11999990000",
         )

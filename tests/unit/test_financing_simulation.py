@@ -13,7 +13,7 @@ class TestFinancingSimulation:
     def _make_simulation(self) -> FinancingSimulation:
         customer = Customer(
             name="João",
-            document="111.222.333-44",
+            document="12345678909",
             email="joao@test.com",
             phone="11999990000",
         )
@@ -32,7 +32,7 @@ class TestFinancingSimulation:
 
     def test_no_offers_initially(self):
         sim = self._make_simulation()
-        assert sim.offers == []
+        assert sim.offers == ()
         assert sim.get_best_offer() is None
 
     def test_add_offer(self):

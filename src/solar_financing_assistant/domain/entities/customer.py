@@ -30,3 +30,23 @@ class Customer:
                 "document must contain 11 digits (CPF) or 14 digits (CNPJ); "
                 f"got {len(digits)} digit(s)."
             )
+        if len(digits) == 11:
+            _validate_cpf_digits(digits)
+
+
+def _validate_cpf_digits(digits: str) -> None:
+    """Raise InvalidCustomerError when CPF check digits are invalid."""
+    if len(set(digits)) == 1:
+        raise InvalidCustomerError("CPF cannot consist of all identical digits.")
+
+    total = sum(int(d) * (10 - i) for i, d in enumerate(digits[:9]))
+    remainder = total * 10 % 11
+    first_check = 0 if remainder >= 10 else remainder
+    if first_check != int(digits[9]):
+        raise InvalidCustomerError("CPF has invalid check digits.")
+
+    total = sum(int(d) * (11 - i) for i, d in enumerate(digits[:10]))
+    remainder = total * 10 % 11
+    second_check = 0 if remainder >= 10 else remainder
+    if second_check != int(digits[10]):
+        raise InvalidCustomerError("CPF has invalid check digits.")
