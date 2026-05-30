@@ -79,7 +79,7 @@ class TesseractOCRAdapter(OCRPort):
 
         return "\n".join(texts)
 
-    def _preprocess_image(self, image: "Image.Image") -> "Image.Image":
+    def _preprocess_image(self, image: Image.Image) -> Image.Image:
         """Upscale 2× and sharpen so Tesseract handles low-resolution scans better."""
         from PIL import ImageEnhance, ImageFilter
 
