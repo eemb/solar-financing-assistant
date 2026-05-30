@@ -3,6 +3,8 @@
 import logging
 from decimal import Decimal
 
+import httpx
+
 from solar_financing_assistant.application.dtos.extracted_energy_bill_data_dto import (
     ExtractedEnergyBillDataDTO,
 )
@@ -19,7 +21,7 @@ from solar_financing_assistant.application.use_cases.validate_address import (
     ValidateAddressUseCase,
 )
 from solar_financing_assistant.domain.entities.solar_project import SolarProject
-from solar_financing_assistant.domain.exceptions import SimulationError
+from solar_financing_assistant.domain.exceptions import InvalidAddressError, SimulationError
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +67,7 @@ class EstimateSolarProjectFromBillUseCase:
                         address.longitude,
                         generation_per_kwp_month,
                     )
-            except Exception:
+            except (httpx.HTTPError, InvalidAddressError):
                 logger.warning(
                     "Could not retrieve solar potential; falling back to %.2f kWh/kWp/month",
                     self._fallback_generation_per_kwp_month,

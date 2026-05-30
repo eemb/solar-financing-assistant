@@ -21,7 +21,7 @@ class ValidateAddressUseCase:
         return Address(
             zip_code=dto.zipcode,
             street=dto.street or "",
-            number="",
+            number=None,
             neighborhood=dto.neighborhood or "",
             city=dto.city or "",
             state=dto.state or "",

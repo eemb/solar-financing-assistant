@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 
+import httpx
 import pytest
 
 from solar_financing_assistant.application.dtos.extracted_energy_bill_data_dto import (
@@ -15,7 +16,7 @@ from solar_financing_assistant.application.use_cases.estimate_solar_project_from
     EstimateSolarProjectFromBillUseCase,
 )
 from solar_financing_assistant.domain.entities.address import Address
-from solar_financing_assistant.domain.exceptions import SimulationError
+from solar_financing_assistant.domain.exceptions import InvalidAddressError, SimulationError
 
 # ---------------------------------------------------------------------------
 # Fakes
@@ -24,7 +25,7 @@ from solar_financing_assistant.domain.exceptions import SimulationError
 _ADDRESS_WITH_COORDS = Address(
     zip_code="52000000",
     street="Rua Exemplo",
-    number="",
+    number=None,
     neighborhood="Bairro",
     city="Recife",
     state="PE",
@@ -35,7 +36,7 @@ _ADDRESS_WITH_COORDS = Address(
 _ADDRESS_NO_COORDS = Address(
     zip_code="52000000",
     street="Rua Exemplo",
-    number="",
+    number=None,
     neighborhood="Bairro",
     city="Recife",
     state="PE",
@@ -160,7 +161,7 @@ async def test_uses_fallback_when_validate_address_raises() -> None:
     use_case = _make_use_case(
         validate_address=FakeValidateAddressUseCase(
             _ADDRESS_WITH_COORDS,
-            raises=Exception("BrasilAPI unavailable"),
+            raises=InvalidAddressError("BrasilAPI unavailable"),
         ),
     )
 
@@ -174,7 +175,7 @@ async def test_uses_fallback_when_solar_potential_raises() -> None:
     use_case = _make_use_case(
         validate_address=FakeValidateAddressUseCase(_ADDRESS_WITH_COORDS),
         get_solar_potential=FakeGetSolarPotentialUseCase(
-            raises=Exception("Open-Meteo unavailable"),
+            raises=httpx.HTTPError("Open-Meteo unavailable"),
         ),
     )
 

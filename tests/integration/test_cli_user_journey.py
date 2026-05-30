@@ -33,6 +33,7 @@ from solar_financing_assistant.application.use_cases.extract_energy_bill_data im
 from solar_financing_assistant.application.use_cases.get_missing_energy_bill_fields import (
     GetMissingEnergyBillFieldsUseCase,
 )
+from solar_financing_assistant.domain.exceptions import InvalidAddressError
 from solar_financing_assistant.infrastructure.financing.local_financing_engine import (
     LocalFinancingEngine,
 )
@@ -51,7 +52,7 @@ class _OfflineValidateAddressUseCase:
     """Always raises so EstimateSolarProjectFromBillUseCase uses the fallback."""
 
     async def execute(self, zipcode: str) -> None:
-        raise Exception("No network in integration tests")
+        raise InvalidAddressError("No network in integration tests")
 
 
 class _NeverCalledSolarPotentialUseCase:

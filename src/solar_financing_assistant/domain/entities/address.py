@@ -6,7 +6,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class Address:
     street: str
-    number: str
+    number: str | None
     neighborhood: str
     city: str
     state: str
@@ -16,7 +16,8 @@ class Address:
     longitude: float | None = None
 
     def full_display(self) -> str:
-        parts = [f"{self.street}, {self.number}"]
+        street_part = f"{self.street}, {self.number}" if self.number else self.street
+        parts = [street_part]
         if self.complement:
             parts.append(self.complement)
         parts.append(f"{self.neighborhood} - {self.city}/{self.state}")

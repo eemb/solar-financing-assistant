@@ -35,14 +35,16 @@ def test_creates_approved_simulation() -> None:
     assert simulation.status == SimulationStatus.APPROVED
 
 
-def test_generates_simulation_id_starting_with_sim() -> None:
+def test_simulation_has_uuid_id() -> None:
+    from uuid import UUID
+
     use_case = CreateFinancingSimulationUseCase(
         LocalFinancingEngine(), InMemorySimulationRepository()
     )
 
     simulation = use_case.execute(_make_viable_project())
 
-    assert simulation.simulation_id.startswith("SIM-")
+    assert isinstance(simulation.id, UUID)
 
 
 def test_saves_simulation_in_repository() -> None:
