@@ -14,14 +14,12 @@ FAKE_RESPONSE_DATA = {
 
 
 def _make_mock_client() -> AsyncMock:
-    """Return an AsyncMock that behaves like an async context manager httpx client."""
+    """Return an AsyncMock that behaves like a reusable httpx.AsyncClient instance."""
     mock_response = MagicMock()
     mock_response.raise_for_status = MagicMock()
     mock_response.json.return_value = FAKE_RESPONSE_DATA
 
     mock_client = AsyncMock()
-    mock_client.__aenter__.return_value = mock_client
-    mock_client.__aexit__.return_value = None
     mock_client.get = AsyncMock(return_value=mock_response)
     return mock_client
 

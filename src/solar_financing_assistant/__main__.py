@@ -55,6 +55,7 @@ def main() -> None:
     )
     solar_gateway = OpenMeteoSolarGateway(
         timeout_seconds=app_settings.http_timeout_seconds,
+        performance_ratio=app_settings.performance_ratio,
     )
 
     validate_address = ValidateAddressUseCase(address_gateway)

@@ -49,6 +49,9 @@ class ChatCLI:
         self.monthly_rate = monthly_rate
 
     def run(self) -> None:
+        asyncio.run(self._run())
+
+    async def _run(self) -> None:
         print("Solar Financing Assistant")
         print()
 
@@ -60,7 +63,7 @@ class ChatCLI:
                 print("Até logo!")
                 break
             if choice == "1":
-                self._simulate_financing()
+                await self._simulate_financing()
             elif choice == "2":
                 self._consult_status()
             else:
@@ -73,7 +76,7 @@ class ChatCLI:
         print("2 - Consultar status")
         print("0 - Sair")
 
-    def _simulate_financing(self) -> None:
+    async def _simulate_financing(self) -> None:
         file_path_str = input("Caminho da conta de energia: ").strip()
         if not file_path_str:
             print("Caminho não informado.")
@@ -82,7 +85,7 @@ class ChatCLI:
         file_path = Path(file_path_str)
 
         try:
-            bill_data = asyncio.run(self._extract_energy_bill.execute(file_path))
+            bill_data = await self._extract_energy_bill.execute(file_path)
         except InvalidEnergyBillError as exc:
             print(f"Erro na conta de energia: {exc}")
             return
@@ -90,7 +93,7 @@ class ChatCLI:
         self._print_extracted_bill_data(bill_data)
 
         try:
-            solar_project = asyncio.run(self._estimate_solar_project_from_bill.execute(bill_data))
+            solar_project = await self._estimate_solar_project_from_bill.execute(bill_data)
         except SimulationError as exc:
             print(f"Erro na estimativa do projeto solar: {exc}")
             return
