@@ -31,7 +31,6 @@ class SimulationStatus(Enum):
 
 @dataclass
 class FinancingSimulation:
-    simulation_id: str = field(default_factory=lambda: f"SIM-{uuid4()}")
     customer: Customer | None = None
     energy_bill: EnergyBill | None = None
     solar_project: SolarProject | None = None
@@ -66,5 +65,5 @@ class FinancingSimulation:
         self.status = SimulationStatus.APPROVED
 
     def mark_failed(self) -> None:
-        logger.warning("Simulation %s marked as FAILED.", self.simulation_id)
+        logger.warning("Simulation %s marked as FAILED.", self.id)
         self.status = SimulationStatus.FAILED

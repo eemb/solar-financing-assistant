@@ -79,8 +79,18 @@ class TesseractOCRAdapter(OCRPort):
 
         return "\n".join(texts)
 
+    def _preprocess_image(self, image: Image.Image) -> Image.Image:
+        """Upscale 2× and sharpen so Tesseract handles low-resolution scans better."""
+        from PIL import ImageEnhance, ImageFilter
+
+        w, h = image.size
+        image = image.resize((w * 2, h * 2), Image.LANCZOS)
+        image = ImageEnhance.Contrast(image).enhance(2.0)
+        image = ImageEnhance.Sharpness(image).enhance(2.0)
+        return image.filter(ImageFilter.SHARPEN)
+
     def _extract_text_from_image(self, file_path: Path) -> str:
-        image = Image.open(file_path)
-        text = pytesseract.image_to_string(image, lang=self._language)
+        image = self._preprocess_image(Image.open(file_path).convert("L"))
+        text = pytesseract.image_to_string(image, lang=self._language, config="--psm 6 --oem 3")
         logger.debug("OCR extracted %d chars from image %s", len(text), file_path.name)
         return text

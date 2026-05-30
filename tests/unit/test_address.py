@@ -1,3 +1,7 @@
+from dataclasses import FrozenInstanceError
+
+import pytest
+
 from solar_financing_assistant.domain.entities import Address
 
 
@@ -12,7 +16,7 @@ class TestAddress:
             zip_code="01001-000",
         )
 
-        assert addr.full_display() == ("Rua das Flores, 123, Centro - São Paulo/SP, 01001-000")
+        assert addr.full_display() == "Rua das Flores, 123, Centro - São Paulo/SP, 01001-000"
 
     def test_full_display_with_complement(self):
         addr = Address(
@@ -29,6 +33,18 @@ class TestAddress:
             "Av Brasil, 456, Apto 101, Jardins - Rio de Janeiro/RJ, 20040-020"
         )
 
+    def test_full_display_without_number(self):
+        addr = Address(
+            street="Rua das Flores",
+            number=None,
+            neighborhood="Centro",
+            city="São Paulo",
+            state="SP",
+            zip_code="01001-000",
+        )
+
+        assert addr.full_display() == "Rua das Flores, Centro - São Paulo/SP, 01001-000"
+
     def test_frozen_instance(self):
         addr = Address(
             street="Rua A",
@@ -39,8 +55,5 @@ class TestAddress:
             zip_code="00000-000",
         )
 
-        try:
+        with pytest.raises(FrozenInstanceError):
             addr.street = "Rua B"  # type: ignore[misc]
-            raise AssertionError("Should not allow mutation")
-        except Exception:
-            pass

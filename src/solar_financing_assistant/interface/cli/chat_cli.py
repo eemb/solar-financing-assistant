@@ -9,23 +9,13 @@ from uuid import UUID
 from solar_financing_assistant.application.dtos.extracted_energy_bill_data_dto import (
     ExtractedEnergyBillDataDTO,
 )
-from solar_financing_assistant.application.use_cases.check_simulation_status import (
-    CheckSimulationStatusUseCase,
-)
-from solar_financing_assistant.application.use_cases.complete_energy_bill_data import (
-    CompleteEnergyBillDataUseCase,
-)
-from solar_financing_assistant.application.use_cases.create_financing_simulation import (
-    CreateFinancingSimulationUseCase,
-)
-from solar_financing_assistant.application.use_cases.estimate_solar_project_from_bill import (
-    EstimateSolarProjectFromBillUseCase,
-)
-from solar_financing_assistant.application.use_cases.extract_energy_bill_data import (
-    ExtractEnergyBillDataUseCase,
-)
-from solar_financing_assistant.application.use_cases.get_missing_energy_bill_fields import (
-    GetMissingEnergyBillFieldsUseCase,
+from solar_financing_assistant.application.ports.use_case_ports import (
+    CheckSimulationStatusPort,
+    CompleteEnergyBillDataPort,
+    CreateFinancingSimulationPort,
+    EstimateSolarProjectFromBillPort,
+    ExtractEnergyBillDataPort,
+    GetMissingEnergyBillFieldsPort,
 )
 from solar_financing_assistant.domain.entities.financing_offer import FinancingOffer
 from solar_financing_assistant.domain.entities.financing_simulation import (
@@ -54,19 +44,21 @@ _FIELD_LABELS: dict[str, str] = {
 class ChatCLI:
     def __init__(
         self,
-        extract_energy_bill: ExtractEnergyBillDataUseCase,
-        create_simulation: CreateFinancingSimulationUseCase,
-        check_status: CheckSimulationStatusUseCase,
-        estimate_solar_project_from_bill: EstimateSolarProjectFromBillUseCase,
+        extract_energy_bill: ExtractEnergyBillDataPort,
+        create_simulation: CreateFinancingSimulationPort,
+        check_status: CheckSimulationStatusPort,
+        estimate_solar_project_from_bill: EstimateSolarProjectFromBillPort,
         monthly_rate: Decimal,
-        get_missing_energy_bill_fields_use_case: GetMissingEnergyBillFieldsUseCase,
-        complete_energy_bill_data_use_case: CompleteEnergyBillDataUseCase,
+        get_missing_energy_bill_fields_use_case: GetMissingEnergyBillFieldsPort,
+        complete_energy_bill_data_use_case: CompleteEnergyBillDataPort,
+        number_of_installments: int = 60,
     ) -> None:
         self._extract_energy_bill = extract_energy_bill
         self._create_simulation = create_simulation
         self._check_status = check_status
         self._estimate_solar_project_from_bill = estimate_solar_project_from_bill
-        self.monthly_rate = monthly_rate
+        self._monthly_rate = monthly_rate
+        self._number_of_installments = number_of_installments
         self._get_missing_fields = get_missing_energy_bill_fields_use_case
         self._complete_bill_data = complete_energy_bill_data_use_case
 
@@ -132,7 +124,8 @@ class ChatCLI:
         try:
             simulation = self._create_simulation.execute(
                 solar_project,
-                monthly_rate=self.monthly_rate,
+                number_of_installments=self._number_of_installments,
+                monthly_rate=self._monthly_rate,
             )
         except SimulationError as exc:
             print(f"Erro na simulação: {exc}")
@@ -199,8 +192,8 @@ class ChatCLI:
         print(f"CEP: {data.zipcode}")
         print(f"Distribuidora: {data.distributor}")
         print(f"Consumo mensal (kWh): {data.monthly_consumption_kwh}")
-        print(f"Custo mensal (R$): {_format_brl(data.monthly_cost_brl)}")
-        print(f"Tarifa (R$/kWh): {_format_brl(data.tariff_brl_per_kwh)}")
+        print(f"Custo mensal (R$): {_format_brl_optional(data.monthly_cost_brl)}")
+        print(f"Tarifa (R$/kWh): {_format_brl_optional(data.tariff_brl_per_kwh)}")
         print(f"Mês de referência: {data.reference_month}")
         print()
 
@@ -216,8 +209,7 @@ class ChatCLI:
     def _print_simulation_result(self, simulation: FinancingSimulation) -> None:
         print()
         print("--- Resultado da simulação ---")
-        print(f"Referência: {simulation.simulation_id}")
-        print(f"ID para consulta: {simulation.id}")
+        print(f"ID: {simulation.id}")
         print(f"Status: {simulation.status.value}")
         offer = simulation.get_best_offer()
         if offer is not None:
@@ -231,7 +223,11 @@ class ChatCLI:
         print(f"Taxa mensal: {offer.monthly_rate}")
 
 
-def _format_brl(value: Decimal | None) -> str:
+def _format_brl(value: Decimal) -> str:
+    return f"{value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP):.2f}"
+
+
+def _format_brl_optional(value: Decimal | None) -> str:
     if value is None:
         return "-"
-    return f"{value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP):.2f}"
+    return _format_brl(value)

@@ -22,5 +22,5 @@ class CheckSimulationStatusUseCase:
         if simulation is None:
             logger.warning("Simulation not found: id=%s", id)
             raise SimulationError("Simulation not found.")
-        logger.info("Simulation %s status: %s", simulation.simulation_id, simulation.status.value)
+        logger.info("Simulation id=%s status: %s", simulation.id, simulation.status.value)
         return simulation
