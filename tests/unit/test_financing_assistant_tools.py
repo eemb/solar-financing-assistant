@@ -232,6 +232,7 @@ async def test_simulate_financing_creates_simulation_when_dto_complete() -> None
 
     assert result["status"] == "approved"
     assert "simulation_id" in result
+    assert "access_token" in result
     assert result["solar_project"] is not None
     assert result["offer"] is not None
     assert result["offer"]["number_of_installments"] == 60
@@ -260,11 +261,24 @@ async def test_check_simulation_status_returns_existing_simulation() -> None:
     sim_result = await tools.simulate_financing_from_bill(_complete_bill_dict())
 
     sim_id = sim_result["simulation_id"]
-    status_result = tools.check_simulation_status(sim_id)
+    access_token = sim_result["access_token"]
+    status_result = tools.check_simulation_status(sim_id, access_token=access_token)
 
     assert status_result["simulation_id"] == sim_id
     assert status_result["status"] == "approved"
     assert status_result["offer"] is not None
+
+
+async def test_check_simulation_status_rejects_wrong_token() -> None:
+    """check_simulation_status must return error when the access token is wrong."""
+    tools = _make_tools()
+    sim_result = await tools.simulate_financing_from_bill(_complete_bill_dict())
+
+    sim_id = sim_result["simulation_id"]
+    result = tools.check_simulation_status(sim_id, access_token="wrong-token")
+
+    assert result["status"] == "error"
+    assert "token" in result["message"].lower()
 
 
 def test_check_simulation_status_returns_error_for_unknown_id() -> None:

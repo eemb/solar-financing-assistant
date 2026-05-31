@@ -58,6 +58,21 @@ class Settings(BaseSettings):
             "Defaults to the OS temporary directory (platform-independent)."
         ),
     )
+    api_key: str | None = Field(
+        default=None,
+        description=(
+            "Secret key required in X-API-Key header. "
+            "When None, authentication is disabled (development only)."
+        ),
+    )
+    cors_origins: list[str] = Field(
+        default=["*"],
+        description="Allowed CORS origins. Restrict to specific domains in production.",
+    )
+    https_redirect: bool = Field(
+        default=False,
+        description="When True, redirect all HTTP requests to HTTPS.",
+    )
 
 
 settings = Settings()

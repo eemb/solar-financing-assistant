@@ -7,8 +7,12 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from solar_financing_assistant.application.dtos.extracted_energy_bill_data_dto import (
+    ExtractedEnergyBillDataDTO,
+)
 from solar_financing_assistant.config.settings import Settings
 from solar_financing_assistant.infrastructure.llm.tools import FinancingAssistantTools
+from solar_financing_assistant.interface.api.auth import limiter
 from solar_financing_assistant.interface.api.dependencies import (
     get_agent,
     get_settings,
@@ -18,6 +22,7 @@ from solar_financing_assistant.interface.api.schemas import (
     AgentChatRequest,
     AgentChatResponse,
     CompleteEnergyBillRequest,
+    ExtractedBillPublic,
     ExtractEnergyBillRequest,
     ExtractEnergyBillResponse,
     HealthResponse,
@@ -46,7 +51,9 @@ def health(settings: Settings = Depends(get_settings)) -> HealthResponse:  # noq
 
 
 @router.post("/energy-bills/extract", response_model=ExtractEnergyBillResponse)
+@limiter.limit("30/minute")
 async def extract_energy_bill(
+    request: Request,
     body: ExtractEnergyBillRequest,
     tools: FinancingAssistantTools = Depends(get_tools),  # noqa: B008
     settings: Settings = Depends(get_settings),  # noqa: B008
@@ -65,7 +72,7 @@ async def extract_energy_bill(
         raise HTTPException(status_code=422, detail=result.get("message", "Extraction failed."))
 
     return ExtractEnergyBillResponse(
-        data=result.get("data", {}),
+        data=ExtractedBillPublic.from_dto(ExtractedEnergyBillDataDTO.model_validate(result["data"])),
         missing_fields=result.get("missing_fields", []),
     )
 
@@ -84,7 +91,7 @@ def complete_energy_bill(
         raise HTTPException(status_code=422, detail=result.get("message", "Completion failed."))
 
     return ExtractEnergyBillResponse(
-        data=result.get("data", {}),
+        data=ExtractedBillPublic.from_dto(ExtractedEnergyBillDataDTO.model_validate(result["data"])),
         missing_fields=result.get("missing_fields", []),
     )
 
@@ -126,15 +133,17 @@ async def create_simulation(
         message=result.get("message"),
         solar_project=result.get("solar_project"),
         offer=result.get("offer"),
+        access_token=result.get("access_token"),
     )
 
 
 @router.get("/simulations/{simulation_id}", response_model=SimulationResponse)
 def get_simulation(
     simulation_id: str,
+    token: str | None = None,
     tools: FinancingAssistantTools = Depends(get_tools),  # noqa: B008
 ) -> SimulationResponse:
-    result = tools.check_simulation_status(simulation_id)
+    result = tools.check_simulation_status(simulation_id, access_token=token)
 
     if result.get("status") == "error":
         raise HTTPException(
@@ -157,7 +166,8 @@ def get_simulation(
 
 
 @router.post("/agent/chat", response_model=AgentChatResponse)
-async def agent_chat(body: AgentChatRequest, request: Request) -> AgentChatResponse:
+@limiter.limit("10/minute")
+async def agent_chat(request: Request, body: AgentChatRequest) -> AgentChatResponse:
     try:
         agent = get_agent(request)
     except RuntimeError as exc:
