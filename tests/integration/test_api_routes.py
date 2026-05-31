@@ -8,6 +8,8 @@ All tests run fully offline:
 
 from __future__ import annotations
 
+import tempfile
+from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -57,8 +59,11 @@ _FAKE_SIMULATION_RESULT: dict[str, Any] = {
 }
 
 # All integration test file paths must live under this directory so the
-# allowlist check in the extract endpoint passes.
-_UPLOAD_DIR = "/tmp"
+# allowlist check in the extract endpoint passes.  Using gettempdir() keeps
+# paths cross-platform (Linux /tmp, Windows %TEMP%).
+_UPLOAD_DIR = tempfile.gettempdir()
+_UPLOAD_BILL = str(Path(_UPLOAD_DIR) / "bill.pdf")
+_UPLOAD_BAD = str(Path(_UPLOAD_DIR) / "bad" / "path")
 
 
 # ---------------------------------------------------------------------------
@@ -127,7 +132,7 @@ def test_health_returns_200(client: TestClient) -> None:
 
 @pytest.mark.integration
 def test_extract_energy_bill_returns_data_and_missing_fields(client: TestClient) -> None:
-    response = client.post("/energy-bills/extract", json={"file_path": "/tmp/bill.pdf"})
+    response = client.post("/energy-bills/extract", json={"file_path": _UPLOAD_BILL})
 
     assert response.status_code == 200
     body = response.json()
@@ -141,10 +146,10 @@ def test_extract_energy_bill_returns_data_and_missing_fields(client: TestClient)
 def test_extract_energy_bill_error_returns_422(client: TestClient) -> None:
     mock_tools = client.app.dependency_overrides[get_tools]()  # type: ignore[attr-defined]
     mock_tools.extract_energy_bill_data = AsyncMock(
-        return_value={"status": "error", "message": "Arquivo não encontrado: /tmp/bad/path"}
+        return_value={"status": "error", "message": f"Arquivo não encontrado: {_UPLOAD_BAD}"}
     )
 
-    response = client.post("/energy-bills/extract", json={"file_path": "/tmp/bad/path"})
+    response = client.post("/energy-bills/extract", json={"file_path": _UPLOAD_BAD})
 
     assert response.status_code == 422
     assert "Arquivo não encontrado" in response.json()["detail"]
@@ -160,9 +165,8 @@ def test_extract_energy_bill_rejects_path_outside_upload_dir(client: TestClient)
 
 @pytest.mark.integration
 def test_extract_energy_bill_rejects_path_traversal(client: TestClient) -> None:
-    response = client.post(
-        "/energy-bills/extract", json={"file_path": "/tmp/../etc/passwd"}
-    )
+    traversal = str(Path(_UPLOAD_DIR) / ".." / "etc" / "passwd")
+    response = client.post("/energy-bills/extract", json={"file_path": traversal})
 
     # The schema validator catches ".." before the request reaches the route.
     assert response.status_code == 422
@@ -318,4 +322,3 @@ def test_agent_chat_with_valid_key_returns_message(client: TestClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["message"] == "Olá! Como posso ajudar?"
-    assert body["raw"] is not None

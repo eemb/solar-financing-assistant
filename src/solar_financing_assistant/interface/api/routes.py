@@ -76,7 +76,7 @@ def complete_energy_bill(
     tools: FinancingAssistantTools = Depends(get_tools),  # noqa: B008
 ) -> ExtractEnergyBillResponse:
     result = tools.complete_energy_bill_data(
-        extracted_bill_data=body.extracted_bill_data,
+        extracted_bill_data=body.extracted_bill_data.model_dump(),
         manual_values=body.manual_values,
     )
 
@@ -169,7 +169,4 @@ async def agent_chat(body: AgentChatRequest, request: Request) -> AgentChatRespo
         logger.exception("Agent run_turn failed")
         raise HTTPException(status_code=500, detail="Erro interno no agente.") from exc
 
-    return AgentChatResponse(
-        message=response.get("content", ""),
-        raw=response,
-    )
+    return AgentChatResponse(message=response.get("content", ""))

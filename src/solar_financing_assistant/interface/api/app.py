@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from solar_financing_assistant.bootstrap import build_tools
 from solar_financing_assistant.config.settings import Settings
 from solar_financing_assistant.interface.api.routes import router
+from solar_financing_assistant.interface.api.state import AppState
 
 
 @asynccontextmanager
@@ -37,9 +38,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     else:
         agent = None
 
-    app.state.settings = settings
-    app.state.tools = tools
-    app.state.agent = agent
+    app.state.app_state = AppState(settings=settings, tools=tools, agent=agent)
 
     yield
 

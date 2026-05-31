@@ -39,7 +39,7 @@ class ExtractEnergyBillResponse(BaseModel):
 
 
 class CompleteEnergyBillRequest(BaseModel):
-    extracted_bill_data: dict
+    extracted_bill_data: ExtractedEnergyBillDataDTO
     manual_values: dict[str, str]
 
 
@@ -95,4 +95,3 @@ class AgentChatRequest(BaseModel):
 
 class AgentChatResponse(BaseModel):
     message: str
-    raw: dict | None = None

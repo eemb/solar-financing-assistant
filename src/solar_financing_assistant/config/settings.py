@@ -1,6 +1,7 @@
 """Application settings loaded from environment variables / .env file."""
 
 import logging
+import tempfile
 from decimal import Decimal
 
 from pydantic import Field
@@ -51,8 +52,11 @@ class Settings(BaseSettings):
         description="Application mode. Options: 'cli' (default), 'agent' (OpenAI-powered).",
     )
     upload_dir: str = Field(
-        default="/tmp",
-        description="Base directory that uploaded file paths must reside within.",
+        default_factory=tempfile.gettempdir,
+        description=(
+            "Base directory that uploaded file paths must reside within. "
+            "Defaults to the OS temporary directory (platform-independent)."
+        ),
     )
 
 
