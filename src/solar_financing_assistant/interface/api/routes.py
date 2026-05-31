@@ -6,9 +6,12 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from solar_financing_assistant.config.settings import Settings
 from solar_financing_assistant.infrastructure.llm.tools import FinancingAssistantTools
-from solar_financing_assistant.interface.api.dependencies import get_agent, get_tools
+from solar_financing_assistant.interface.api.dependencies import (
+    _cached_settings,
+    get_agent,
+    get_tools,
+)
 from solar_financing_assistant.interface.api.schemas import (
     AgentChatRequest,
     AgentChatResponse,
@@ -32,7 +35,7 @@ router = APIRouter()
 
 @router.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
-    settings = Settings()
+    settings = _cached_settings()
     return HealthResponse(status="ok", app_mode=settings.app_mode)
 
 
@@ -151,7 +154,7 @@ async def agent_chat(body: AgentChatRequest) -> AgentChatResponse:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     try:
-        response = await agent.run_turn(list(body.messages))
+        response = await agent.run_turn([m.model_dump() for m in body.messages])
     except Exception as exc:
         logger.exception("Agent run_turn failed")
         raise HTTPException(status_code=500, detail="Erro interno no agente.") from exc
