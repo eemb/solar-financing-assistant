@@ -46,6 +46,10 @@ class Settings(BaseSettings):
             "Typical range: 0.70–0.85."
         ),
     )
+    app_mode: str = Field(
+        default="cli",
+        description="Application mode. Options: 'cli' (default), 'agent' (OpenAI-powered).",
+    )
 
 
 settings = Settings()

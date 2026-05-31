@@ -42,6 +42,24 @@ class EstimateSolarProjectFromBillUseCase:
         self._cost_per_kwp_brl = cost_per_kwp_brl
 
     async def execute(self, extracted_bill: ExtractedEnergyBillDataDTO) -> SolarProject:
+        project, _ = await self._execute_internal(extracted_bill)
+        return project
+
+    async def execute_with_metadata(
+        self, extracted_bill: ExtractedEnergyBillDataDTO
+    ) -> tuple[SolarProject, str]:
+        """Return ``(solar_project, solar_potential_source)``.
+
+        ``solar_potential_source`` is ``"api"`` when real irradiation data was
+        obtained from the solar gateway, or ``"fallback"`` when the default
+        ``generation_per_kwp_month`` was used (no zipcode, invalid address, or
+        network error).
+        """
+        return await self._execute_internal(extracted_bill)
+
+    async def _execute_internal(
+        self, extracted_bill: ExtractedEnergyBillDataDTO
+    ) -> tuple[SolarProject, str]:
         if (
             extracted_bill.monthly_consumption_kwh is None
             or extracted_bill.monthly_consumption_kwh <= 0
@@ -49,6 +67,7 @@ class EstimateSolarProjectFromBillUseCase:
             raise SimulationError("Monthly consumption is required to estimate solar project.")
 
         generation_per_kwp_month = self._fallback_generation_per_kwp_month
+        solar_potential_source = "fallback"
 
         if extracted_bill.zipcode:
             try:
@@ -61,6 +80,7 @@ class EstimateSolarProjectFromBillUseCase:
                     generation_per_kwp_month = (
                         solar_potential.estimated_daily_generation_kwh_per_kwp * 30
                     )
+                    solar_potential_source = "api"
                     logger.info(
                         "Solar potential from (%.4f, %.4f): %.2f kWh/kWp/month",
                         address.latitude,
@@ -73,11 +93,13 @@ class EstimateSolarProjectFromBillUseCase:
                     self._fallback_generation_per_kwp_month,
                 )
                 generation_per_kwp_month = self._fallback_generation_per_kwp_month
+                solar_potential_source = "fallback"
 
-        return self._estimate_solar_project.execute(
+        project = self._estimate_solar_project.execute(
             SolarProjectEstimateInputDTO(
                 monthly_consumption_kwh=extracted_bill.monthly_consumption_kwh,
                 generation_per_kwp_month=generation_per_kwp_month,
                 cost_per_kwp_brl=self._cost_per_kwp_brl,
             )
         )
+        return project, solar_potential_source
