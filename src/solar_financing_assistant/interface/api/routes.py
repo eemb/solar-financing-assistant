@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 
 from solar_financing_assistant.application.dtos.extracted_energy_bill_data_dto import (
     ExtractedEnergyBillDataDTO,
@@ -104,6 +104,7 @@ def complete_energy_bill(
 @router.post("/simulations", response_model=SimulationResponse)
 async def create_simulation(
     body: SimulationRequest,
+    response: Response,
     tools: FinancingAssistantTools = Depends(get_tools),  # noqa: B008
 ) -> SimulationResponse:
     if not body.confirm:
@@ -127,23 +128,26 @@ async def create_simulation(
             message="Campos obrigatórios ausentes na conta de energia.",
         )
 
+    access_token = result.get("access_token")
+    if access_token:
+        response.headers["X-Simulation-Token"] = access_token
+
     return SimulationResponse(
         status=result.get("status", "unknown"),
         simulation_id=result.get("simulation_id"),
         message=result.get("message"),
         solar_project=result.get("solar_project"),
         offer=result.get("offer"),
-        access_token=result.get("access_token"),
     )
 
 
 @router.get("/simulations/{simulation_id}", response_model=SimulationResponse)
 def get_simulation(
     simulation_id: str,
-    token: str | None = None,
+    x_simulation_token: str | None = Header(default=None),  # noqa: B008
     tools: FinancingAssistantTools = Depends(get_tools),  # noqa: B008
 ) -> SimulationResponse:
-    result = tools.check_simulation_status(simulation_id, access_token=token)
+    result = tools.check_simulation_status(simulation_id, access_token=x_simulation_token)
 
     if result.get("status") == "error":
         raise HTTPException(

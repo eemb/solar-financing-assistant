@@ -5,9 +5,10 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
+from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
@@ -18,32 +19,48 @@ from solar_financing_assistant.interface.api.routes import router
 from solar_financing_assistant.interface.api.state import AppState
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Build all application-scoped singletons once and store them on app.state."""
-    from solar_financing_assistant.infrastructure.llm.agent import FinancingAssistantAgent
-
-    settings = Settings()
-    tools = build_tools(settings)
-
-    api_key = settings.openai_api_key
-    if api_key and api_key != "sk-your-key-here":
-        agent = FinancingAssistantAgent(
-            tools=tools,
-            api_key=api_key,
-            model=settings.openai_model,
-        )
-    else:
-        agent = None
-
-    app.state.app_state = AppState(settings=settings, tools=tools, agent=agent)
-
-    yield
+def _rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:  # noqa: ARG001
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Too many requests. Please slow down."},
+    )
 
 
-def create_app() -> FastAPI:
-    """Create and configure the FastAPI application."""
-    _settings = Settings()
+def create_app(settings: Settings | None = None) -> FastAPI:
+    """Create and configure the FastAPI application.
+
+    Accepts an optional *settings* instance so that tests and the lifespan
+    share the exact same object — only one ``Settings()`` is instantiated per
+    application lifecycle.
+    """
+    _settings = settings if settings is not None else Settings()
+
+    # -----------------------------------------------------------------------
+    # Lifespan — closure over _settings so no second instantiation is needed
+    # -----------------------------------------------------------------------
+
+    @asynccontextmanager
+    async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+        from solar_financing_assistant.infrastructure.llm.agent import FinancingAssistantAgent
+
+        tools = build_tools(_settings)
+
+        api_key = _settings.openai_api_key
+        if api_key and api_key != "sk-your-key-here":
+            agent: FinancingAssistantAgent | None = FinancingAssistantAgent(
+                tools=tools,
+                api_key=api_key,
+                model=_settings.openai_model,
+            )
+        else:
+            agent = None
+
+        app.state.app_state = AppState(settings=_settings, tools=tools, agent=agent)
+        yield
+
+    # -----------------------------------------------------------------------
+    # Application
+    # -----------------------------------------------------------------------
 
     application = FastAPI(
         title="Solar Financing Assistant API",
@@ -53,7 +70,7 @@ def create_app() -> FastAPI:
             "parcelas pelo método Price."
         ),
         version="0.1.0",
-        lifespan=lifespan,
+        lifespan=_lifespan,
     )
 
     # -----------------------------------------------------------------------
@@ -68,23 +85,18 @@ def create_app() -> FastAPI:
         allow_origins=_settings.cors_origins,
         allow_credentials=False,
         allow_methods=["GET", "POST"],
-        allow_headers=["X-API-Key", "Content-Type"],
+        allow_headers=["X-API-Key", "X-Simulation-Token", "Content-Type"],
+        expose_headers=["X-Simulation-Token"],
     )
 
     application.add_middleware(SlowAPIMiddleware)
 
     # -----------------------------------------------------------------------
-    # Rate-limiter state (slowapi reads this from app.state.limiter)
+    # Rate-limiter
     # -----------------------------------------------------------------------
 
     application.state.limiter = limiter
-    application.add_exception_handler(
-        RateLimitExceeded,
-        lambda req, exc: __import__("fastapi").responses.JSONResponse(  # type: ignore[arg-type]
-            status_code=429,
-            content={"detail": "Too many requests. Please slow down."},
-        ),
-    )
+    application.add_exception_handler(RateLimitExceeded, _rate_limit_handler)  # type: ignore[arg-type]
 
     # -----------------------------------------------------------------------
     # Router — global API-key auth applied to every route

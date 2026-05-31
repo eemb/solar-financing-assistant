@@ -95,7 +95,6 @@ class SimulationResponse(BaseModel):
     missing_fields: list[str] | None = None
     solar_project: SolarProjectResponse | None = None
     offer: FinancingOfferResponse | None = None
-    access_token: str | None = None
 
 
 # ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@ callers (e.g. an LLM agent) can handle them gracefully.
 from __future__ import annotations
 
 import json
+from collections import OrderedDict
 from decimal import Decimal
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -41,6 +42,8 @@ from solar_financing_assistant.domain.exceptions import DomainError
 # ---------------------------------------------------------------------------
 # Private serialisation helpers
 # ---------------------------------------------------------------------------
+
+_MAX_TOKENS = 10_000  # evict oldest entries beyond this limit
 
 _STATUS_MESSAGES: dict[str, str] = {
     "approved": "Simulação aprovada com oferta de financiamento.",
@@ -130,7 +133,8 @@ class FinancingAssistantTools:
         self._ocr_provider_name = ocr_provider_name
         # Maps simulation_id → access_token; populated by simulate_financing_from_bill
         # and checked by check_simulation_status to enforce per-simulation ownership.
-        self._token_store: dict[UUID, str] = {}
+        # Bounded to _MAX_TOKENS entries (FIFO eviction) to prevent unbounded growth.
+        self._token_store: OrderedDict[UUID, str] = OrderedDict()
 
     # ------------------------------------------------------------------
     # Tool 1 — extract_energy_bill_data
@@ -218,9 +222,15 @@ class FinancingAssistantTools:
 
         result = _simulation_to_dict(simulation, solar_potential_source=solar_potential_source)
         access_token = str(uuid4())
-        self._token_store[simulation.id] = access_token
+        self._store_token(simulation.id, access_token)
         result["access_token"] = access_token
         return result
+
+    def _store_token(self, sim_id: UUID, token: str) -> None:
+        """Store an access token, evicting the oldest entry when the store is full."""
+        if len(self._token_store) >= _MAX_TOKENS:
+            self._token_store.popitem(last=False)
+        self._token_store[sim_id] = token
 
     # ------------------------------------------------------------------
     # Tool 4 — check_simulation_status
