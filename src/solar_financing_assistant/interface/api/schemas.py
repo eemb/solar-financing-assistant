@@ -66,7 +66,7 @@ class FinancingOfferResponse(BaseModel):
 
 
 class SimulationRequest(BaseModel):
-    extracted_bill_data: dict
+    extracted_bill_data: ExtractedEnergyBillDataDTO
     confirm: bool = False
 
 

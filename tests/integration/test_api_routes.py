@@ -14,8 +14,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from solar_financing_assistant.config.settings import Settings
 from solar_financing_assistant.interface.api.app import create_app
-from solar_financing_assistant.interface.api.dependencies import get_tools
+from solar_financing_assistant.interface.api.dependencies import get_settings, get_tools
 
 # ---------------------------------------------------------------------------
 # Shared fake data
@@ -55,6 +56,10 @@ _FAKE_SIMULATION_RESULT: dict[str, Any] = {
     },
 }
 
+# All integration test file paths must live under this directory so the
+# allowlist check in the extract endpoint passes.
+_UPLOAD_DIR = "/tmp"
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -85,10 +90,12 @@ def _make_mock_tools() -> MagicMock:
 
 @pytest.fixture()
 def client() -> TestClient:
-    """TestClient with get_tools overridden by a mock."""
+    """TestClient with get_tools and get_settings overridden by mocks."""
     application = create_app()
     mock_tools = _make_mock_tools()
+    mock_settings = Settings(upload_dir=_UPLOAD_DIR)
     application.dependency_overrides[get_tools] = lambda: mock_tools
+    application.dependency_overrides[get_settings] = lambda: mock_settings
     return TestClient(application)
 
 
@@ -120,7 +127,7 @@ def test_health_returns_200(client: TestClient) -> None:
 
 @pytest.mark.integration
 def test_extract_energy_bill_returns_data_and_missing_fields(client: TestClient) -> None:
-    response = client.post("/energy-bills/extract", json={"file_path": "/fake/path/bill.pdf"})
+    response = client.post("/energy-bills/extract", json={"file_path": "/tmp/bill.pdf"})
 
     assert response.status_code == 200
     body = response.json()
@@ -134,13 +141,31 @@ def test_extract_energy_bill_returns_data_and_missing_fields(client: TestClient)
 def test_extract_energy_bill_error_returns_422(client: TestClient) -> None:
     mock_tools = client.app.dependency_overrides[get_tools]()  # type: ignore[attr-defined]
     mock_tools.extract_energy_bill_data = AsyncMock(
-        return_value={"status": "error", "message": "Arquivo não encontrado: /bad/path"}
+        return_value={"status": "error", "message": "Arquivo não encontrado: /tmp/bad/path"}
     )
 
-    response = client.post("/energy-bills/extract", json={"file_path": "/bad/path"})
+    response = client.post("/energy-bills/extract", json={"file_path": "/tmp/bad/path"})
 
     assert response.status_code == 422
     assert "Arquivo não encontrado" in response.json()["detail"]
+
+
+@pytest.mark.integration
+def test_extract_energy_bill_rejects_path_outside_upload_dir(client: TestClient) -> None:
+    response = client.post("/energy-bills/extract", json={"file_path": "/etc/passwd"})
+
+    assert response.status_code == 400
+    assert "upload directory" in response.json()["detail"]
+
+
+@pytest.mark.integration
+def test_extract_energy_bill_rejects_path_traversal(client: TestClient) -> None:
+    response = client.post(
+        "/energy-bills/extract", json={"file_path": "/tmp/../etc/passwd"}
+    )
+
+    # The schema validator catches ".." before the request reaches the route.
+    assert response.status_code == 422
 
 
 # ---------------------------------------------------------------------------

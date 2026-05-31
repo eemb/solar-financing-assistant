@@ -50,6 +50,10 @@ class Settings(BaseSettings):
         default="cli",
         description="Application mode. Options: 'cli' (default), 'agent' (OpenAI-powered).",
     )
+    upload_dir: str = Field(
+        default="/tmp",
+        description="Base directory that uploaded file paths must reside within.",
+    )
 
 
 settings = Settings()

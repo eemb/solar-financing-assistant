@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from solar_financing_assistant.config.settings import Settings
 from solar_financing_assistant.infrastructure.llm.tools import FinancingAssistantTools
 from solar_financing_assistant.interface.api.dependencies import (
-    _cached_settings,
     get_agent,
+    get_settings,
     get_tools,
 )
 from solar_financing_assistant.interface.api.schemas import (
@@ -34,8 +36,7 @@ router = APIRouter()
 
 
 @router.get("/health", response_model=HealthResponse)
-def health() -> HealthResponse:
-    settings = _cached_settings()
+def health(settings: Settings = Depends(get_settings)) -> HealthResponse:  # noqa: B008
     return HealthResponse(status="ok", app_mode=settings.app_mode)
 
 
@@ -48,7 +49,16 @@ def health() -> HealthResponse:
 async def extract_energy_bill(
     body: ExtractEnergyBillRequest,
     tools: FinancingAssistantTools = Depends(get_tools),  # noqa: B008
+    settings: Settings = Depends(get_settings),  # noqa: B008
 ) -> ExtractEnergyBillResponse:
+    allowed = Path(settings.upload_dir).resolve()
+    requested = Path(body.file_path).resolve()
+    if not requested.is_relative_to(allowed):
+        raise HTTPException(
+            status_code=400,
+            detail="file_path must be inside the configured upload directory.",
+        )
+
     result = await tools.extract_energy_bill_data(body.file_path)
 
     if result.get("status") == "error":
@@ -98,7 +108,7 @@ async def create_simulation(
             ),
         )
 
-    result = await tools.simulate_financing_from_bill(body.extracted_bill_data)
+    result = await tools.simulate_financing_from_bill(body.extracted_bill_data.model_dump())
 
     if result.get("status") == "error":
         raise HTTPException(status_code=422, detail=result.get("message", "Simulation failed."))
@@ -147,9 +157,9 @@ def get_simulation(
 
 
 @router.post("/agent/chat", response_model=AgentChatResponse)
-async def agent_chat(body: AgentChatRequest) -> AgentChatResponse:
+async def agent_chat(body: AgentChatRequest, request: Request) -> AgentChatResponse:
     try:
-        agent = get_agent()
+        agent = get_agent(request)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
