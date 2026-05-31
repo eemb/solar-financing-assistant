@@ -5,7 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from solar_financing_assistant.application.dtos.extracted_energy_bill_data_dto import (
     ExtractedEnergyBillDataDTO,
@@ -111,6 +111,12 @@ class ChatMessage(BaseModel):
 
 class AgentChatRequest(BaseModel):
     messages: Annotated[list[ChatMessage], Field(min_length=1, max_length=50)]
+
+    @model_validator(mode="after")
+    def first_message_must_be_user(self) -> AgentChatRequest:
+        if self.messages and self.messages[0].role != "user":
+            raise ValueError("First message must be from the user.")
+        return self
 
 
 class AgentChatResponse(BaseModel):

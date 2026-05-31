@@ -38,12 +38,18 @@ from solar_financing_assistant.domain.entities.financing_offer import FinancingO
 from solar_financing_assistant.domain.entities.financing_simulation import FinancingSimulation
 from solar_financing_assistant.domain.entities.solar_project import SolarProject
 from solar_financing_assistant.domain.exceptions import DomainError
+from solar_financing_assistant.infrastructure.repositories.in_memory_simulation_repository import (
+    _DEFAULT_MAX_SIZE as _REPO_MAX_SIZE,
+)
 
 # ---------------------------------------------------------------------------
 # Private serialisation helpers
 # ---------------------------------------------------------------------------
 
-_MAX_TOKENS = 10_000  # evict oldest entries beyond this limit
+# Must equal _REPO_MAX_SIZE so that when the repository evicts simulation #N
+# the token store also evicts its token — preventing a "forgotten" simulation
+# from becoming publicly accessible again once its token entry is gone.
+_MAX_TOKENS = _REPO_MAX_SIZE
 
 _STATUS_MESSAGES: dict[str, str] = {
     "approved": "Simulação aprovada com oferta de financiamento.",

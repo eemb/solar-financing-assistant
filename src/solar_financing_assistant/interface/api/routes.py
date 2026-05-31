@@ -72,7 +72,9 @@ async def extract_energy_bill(
         raise HTTPException(status_code=422, detail=result.get("message", "Extraction failed."))
 
     return ExtractEnergyBillResponse(
-        data=ExtractedBillPublic.from_dto(ExtractedEnergyBillDataDTO.model_validate(result["data"])),
+        data=ExtractedBillPublic.from_dto(
+            ExtractedEnergyBillDataDTO.model_validate(result["data"])
+        ),
         missing_fields=result.get("missing_fields", []),
     )
 
@@ -91,7 +93,9 @@ def complete_energy_bill(
         raise HTTPException(status_code=422, detail=result.get("message", "Completion failed."))
 
     return ExtractEnergyBillResponse(
-        data=ExtractedBillPublic.from_dto(ExtractedEnergyBillDataDTO.model_validate(result["data"])),
+        data=ExtractedBillPublic.from_dto(
+            ExtractedEnergyBillDataDTO.model_validate(result["data"])
+        ),
         missing_fields=result.get("missing_fields", []),
     )
 
