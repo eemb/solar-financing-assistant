@@ -1,6 +1,6 @@
 # Solar Financing Assistant
 
-Assistente de linha de comando para simulação de financiamento de energia solar residencial. A partir de uma conta de energia, o assistente estima o sistema fotovoltaico necessário, consulta o potencial solar do endereço via Open-Meteo e calcula as parcelas pelo método Price.
+Assistente de linha de comando para simulação de financiamento de energia solar residencial. A partir da foto de uma conta de energia, o assistente estima o sistema fotovoltaico necessário, consulta o potencial solar do endereço via Open-Meteo e calcula as parcelas pelo método Price.
 
 ## Requisitos
 
@@ -21,6 +21,8 @@ Edite o `.env` conforme necessário. As variáveis disponíveis estão documenta
 
 ## Executar
 
+### CLI interativa
+
 ```bash
 python -m solar_financing_assistant
 ```
@@ -29,6 +31,33 @@ O assistente apresenta um menu interativo com duas opções:
 
 1. **Simular financiamento** — informa o caminho de uma conta de energia (PDF ou imagem), o sistema estima o projeto solar e calcula as parcelas
 2. **Consultar status** — informe o UUID exibido ao final da simulação para ver o resultado
+
+### Modo agente (OpenAI)
+
+```bash
+APP_MODE=agent python -m solar_financing_assistant
+```
+
+Requer `OPENAI_API_KEY` configurada no `.env`.
+
+### API HTTP (FastAPI)
+
+```bash
+uvicorn solar_financing_assistant.interface.api.app:app --reload
+```
+
+A documentação interativa fica disponível em `http://localhost:8000/docs`.
+
+Endpoints disponíveis:
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `GET` | `/health` | Status da aplicação |
+| `POST` | `/energy-bills/extract` | Extrai dados de uma conta de energia |
+| `POST` | `/energy-bills/complete` | Completa campos ausentes manualmente |
+| `POST` | `/simulations` | Cria simulação de financiamento (`confirm: true` obrigatório) |
+| `GET` | `/simulations/{id}` | Consulta status de uma simulação |
+| `POST` | `/agent/chat` | Chat com o agente OpenAI (requer `OPENAI_API_KEY`) |
 
 ## Configuração
 
@@ -63,7 +92,9 @@ src/solar_financing_assistant/
 │   ├── ocr/            # adaptador OCR (mock — substituir pelo adaptador real)
 │   └── repositories/   # repositório em memória
 ├── interface/
-│   └── cli/            # ChatCLI — interface de linha de comando
+│   ├── cli/            # ChatCLI e AgentCLI — interfaces de linha de comando
+│   └── api/            # FastAPI — interface HTTP
+├── bootstrap.py        # Composição de dependências compartilhada
 └── config/             # Settings via pydantic-settings
 tests/
 ├── unit/
