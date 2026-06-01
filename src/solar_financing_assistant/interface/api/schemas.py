@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from solar_financing_assistant.application.dtos.extracted_energy_bill_data_dto import (
     ExtractedEnergyBillDataDTO,
@@ -33,8 +33,26 @@ class ExtractEnergyBillRequest(BaseModel):
         return v
 
 
+class ExtractedBillPublic(BaseModel):
+    """Public-facing energy-bill data with the CPF partially masked."""
+
+    customer_name: str | None = None
+    cpf: str | None = None
+    zipcode: str | None = None
+    distributor: str | None = None
+    monthly_consumption_kwh: float | None = None
+    monthly_cost_brl: Decimal | None = None
+    tariff_brl_per_kwh: Decimal | None = None
+    reference_month: str | None = None
+
+    @classmethod
+    def from_dto(cls, dto: ExtractedEnergyBillDataDTO) -> ExtractedBillPublic:
+        masked_cpf = f"{dto.cpf[:3]}.***.***.{dto.cpf[-2:]}" if dto.cpf else None
+        return cls(**dto.model_dump(exclude={"cpf"}), cpf=masked_cpf)
+
+
 class ExtractEnergyBillResponse(BaseModel):
-    data: ExtractedEnergyBillDataDTO
+    data: ExtractedBillPublic
     missing_fields: list[str]
 
 
@@ -83,14 +101,22 @@ class SimulationResponse(BaseModel):
 # Agent chat
 # ---------------------------------------------------------------------------
 
+BoundedContent = Annotated[str, Field(min_length=1, max_length=4_000)]
+
 
 class ChatMessage(BaseModel):
-    role: Literal["user", "assistant", "system"]
-    content: str
+    role: Literal["user", "assistant"]
+    content: BoundedContent
 
 
 class AgentChatRequest(BaseModel):
-    messages: list[ChatMessage]
+    messages: Annotated[list[ChatMessage], Field(min_length=1, max_length=50)]
+
+    @model_validator(mode="after")
+    def first_message_must_be_user(self) -> AgentChatRequest:
+        if self.messages and self.messages[0].role != "user":
+            raise ValueError("First message must be from the user.")
+        return self
 
 
 class AgentChatResponse(BaseModel):
