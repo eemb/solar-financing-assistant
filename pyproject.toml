@@ -1,8 +1,19 @@
 [project]
 name = "solar-financing-assistant"
 version = "0.1.0"
-description = "Assistente conversacional para simulação de financiamento de energia solar"
+description = "Backend for residential solar financing simulation (OCR → PV sizing → Price financing) exposed via a FastAPI REST API and an OpenAI tool-calling agent."
+readme = "README.md"
 requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Eduardo Eile" }]
+keywords = ["solar", "financing", "fastapi", "hexagonal-architecture", "openai", "ocr"]
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Framework :: FastAPI",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+]
 dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
@@ -28,12 +39,19 @@ dev = [
     "mypy>=1.10",
 ]
 
+[project.urls]
+Homepage = "https://github.com/eemb/solar-financing-assistant"
+Repository = "https://github.com/eemb/solar-financing-assistant"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/solar_financing_assistant"]
+# Ship the PEP 561 marker so downstream consumers get the inline type hints.
+[tool.hatch.build.targets.wheel.force-include]
+"src/solar_financing_assistant/py.typed" = "solar_financing_assistant/py.typed"
 
 [tool.ruff]
 target-version = "py311"

@@ -1,92 +1,123 @@
 # Solar Financing Assistant
 
-Backend para simulação de financiamento de energia solar residencial. A partir da foto ou PDF de uma conta de energia, o sistema extrai os dados via OCR, consulta potencial solar do endereço pela API Open-Meteo, dimensiona o projeto fotovoltaico, calcula as parcelas pelo método Price e expõe tudo via API REST ou agente conversacional OpenAI.
+[![CI](https://github.com/eemb/solar-financing-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/eemb/solar-financing-assistant/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![Typed](https://img.shields.io/badge/mypy-strict-brightgreen)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+Backend for **residential solar financing simulation** for the Brazilian market. Starting
+from a photo or PDF of an energy bill, it extracts the data via OCR, looks up the address's
+solar potential through the Open-Meteo API, sizes the photovoltaic project, computes the
+installments using the **Price method**, and exposes everything through a **REST API** or an
+**OpenAI conversational agent**.
+
+> **The problem.** A homeowner who wants solar panels has to guess how big a system they
+> need, how much it costs, and what the monthly payment would be. This service turns a single
+> energy bill into a concrete, transparent financing estimate.
+
+**Tech stack:** Python 3.11 · FastAPI · Pydantic v2 · httpx · OpenAI SDK · Tesseract · pytest
+· mypy (strict) · ruff · hexagonal architecture.
+
+See [`docs/architecture.md`](docs/architecture.md) for the full architecture, diagrams,
+request flow, design decisions, and the security model.
 
 ---
 
-## Destaques de arquitetura e engenharia
+## Highlights
 
-### Arquitetura hexagonal (Ports & Adapters)
+### Hexagonal architecture (Ports & Adapters)
 
-O projeto segue separação estrita de camadas. O domínio não importa nada externo — use cases dependem de contratos (`Protocol`), não de implementações:
+The project keeps strict layer separation. The domain imports nothing external; use cases
+depend on `Protocol` contracts, not implementations:
 
 ```
-domain/          → entidades e exceções — zero dependências externas
-application/     → use cases, DTOs, ports (Protocol)
-infrastructure/  → adaptadores concretos (OCR, gateways, LLM, repositório)
-interface/       → FastAPI + CLI — detalhe de entrega, não lógica
-config/          → pydantic-settings com leitura de .env
+domain/          entities and exceptions — zero external dependencies
+application/     use cases, DTOs, ports (Protocol)
+infrastructure/  concrete adapters (OCR, gateways, LLM, repository)
+interface/       FastAPI + CLI — delivery detail, not business logic
+config/          pydantic-settings reading from .env
 ```
 
-Trocar o `MockOCRAdapter` por Tesseract, OpenAI Vision ou qualquer outro OCR não altera nenhum use case — apenas o adaptador.
+Replacing `MockOCRAdapter` with Tesseract, OpenAI Vision, or any other OCR does not change a
+single use case — only the adapter.
 
-### FastAPI com Dependency Injection e Lifespan
+### FastAPI with dependency injection and lifespan
 
-- Singletons (`Settings`, `FinancingAssistantTools`, `FinancingAssistantAgent`) são criados **uma única vez** no lifespan da aplicação e armazenados em um `AppState` tipado (`@dataclass`) em `app.state`
-- Dependências são injetadas via `Depends` — totalmente substituíveis em testes com `dependency_overrides`, sem `lru_cache` vazando estado entre suítes
-- `FinancingAssistantAgent` é inicializado opcionalmente: se `OPENAI_API_KEY` ausente ou inválida, a API sobe sem o agente e retorna `503` apenas no endpoint `/agent/chat`
+- Singletons (`Settings`, `FinancingAssistantTools`, `FinancingAssistantAgent`) are created
+  **once** in the application lifespan and stored in a typed `AppState` (`@dataclass`) on
+  `app.state`.
+- Dependencies are injected via `Depends` — fully replaceable in tests with
+  `dependency_overrides`, without `lru_cache` leaking state between suites.
+- `FinancingAssistantAgent` is optional: if `OPENAI_API_KEY` is missing or invalid, the API
+  still starts and returns `503` only on the `/agent/chat` endpoint.
+- Outbound `httpx` clients held by the gateways are closed on shutdown, so no connections leak.
 
-### Pydantic v2 — schemas tipados e validação forte
+### Pydantic v2 — typed schemas and strong validation
 
-Todos os endpoints têm request/response com tipos concretos — nenhum `dict` genérico no contrato público:
+Every endpoint has typed request/response models — no generic `dict` in the public contract:
 
-| Schema | Detalhe |
-|--------|---------|
-| `ExtractedBillPublic` | CPF mascarado (`123.***.***.90`) no response |
-| `ChatMessage` | `role: Literal["user", "assistant"]` — `system` bloqueado no schema |
-| `AgentChatRequest` | `min_length=1, max_length=50` na lista de mensagens; conteúdo limitado a 4 000 caracteres; `model_validator` rejeita conversas que não começam com `user` |
-| `SolarProjectResponse`, `FinancingOfferResponse` | Campos `Decimal` tipados, sem `dict` opaco |
-| `SimulationRequest` | `confirm: bool = False` — simulação só é persistida com confirmação explícita |
+| Schema | Detail |
+|--------|--------|
+| `ExtractedBillPublic` | CPF masked (`123.***.***.90`) in the response |
+| `ChatMessage` | `role: Literal["user", "assistant"]` — `system` blocked at the schema level |
+| `AgentChatRequest` | `min_length=1, max_length=50` message list; content capped at 4,000 chars; a `model_validator` rejects conversations that don't start with `user` |
+| `SolarProjectResponse`, `FinancingOfferResponse` | Typed `Decimal` fields, no opaque `dict` |
+| `SimulationRequest` | `confirm: bool = False` — a simulation is persisted only with explicit confirmation |
 
-### Segurança em camadas
+### Layered security
 
-| Vetor | Mitigação |
-|-------|-----------|
-| **Acesso não autorizado** | `X-API-Key` via `APIKeyHeader` aplicado globalmente no router; desativado por padrão em dev (`api_key: None`) |
-| **Abuso de endpoints** | `slowapi` com `_get_client_ip` que lê `X-Forwarded-For` (primeiro segmento) antes de `request.client.host` — rate limit por usuário real mesmo atrás de proxy reverso |
-| **Path traversal** | Validador Pydantic bloqueia `..`; handler valida `Path.is_relative_to(upload_dir)` via `settings.upload_dir` — path absoluto arbitrário é rejeitado com `400` |
-| **Prompt injection** | System prompt instrui o modelo a tratar dados extraídos como input (não instruções); role `system` bloqueado no schema; primeira mensagem deve ser `user`; conteúdo limitado a 4 000 chars; dados OCR envolvidos em delimitadores `[DADOS EXTRAÍDOS DA CONTA]...[FIM DOS DADOS]` |
-| **Vazamento de dados** | CPF mascarado em todos os responses; campo `raw` removido de `AgentChatResponse` |
-| **Ownership de simulação** | Token UUID gerado na criação, retornado no header `X-Simulation-Token`; validado no `GET /simulations/{id}` via header — nunca exposto no body JSON |
-| **Memory leak em tokens** | `_token_store: OrderedDict[UUID, str]` com eviction FIFO (`_MAX_TOKENS = _DEFAULT_MAX_SIZE` do repositório) — ambas as estruturas evictam na mesma cadência, impedindo que simulações se tornem públicas após o token ser descartado |
-| **CORS / HTTPS** | `CORSMiddleware` configurável via `cors_origins`; `HTTPSRedirectMiddleware` ativável por `https_redirect: bool` |
+| Vector | Mitigation |
+|--------|------------|
+| **Unauthorized access** | `X-API-Key` via `APIKeyHeader` applied globally on the router, compared with `secrets.compare_digest` (timing-safe); disabled by default in dev (`api_key: None`) |
+| **Endpoint abuse** | `slowapi` reading `X-Forwarded-For` (first hop) before `request.client.host` — per-client rate limiting even behind a reverse proxy |
+| **Path traversal** | A Pydantic validator blocks `..`; the handler requires the resolved path to be inside `UPLOAD_DIR` (`Path.is_relative_to`) — arbitrary absolute paths are rejected with `400` |
+| **Prompt injection** | System prompt tells the model to treat extracted data as input (not instructions); the `system` role is blocked in the schema; the first message must be `user`; content is capped at 4,000 chars; OCR data is wrapped in `[DADOS EXTRAÍDOS DA CONTA]…[FIM DOS DADOS]` delimiters |
+| **Data leakage** | CPF masked in every response; raw OCR text removed from `AgentChatResponse` |
+| **Simulation ownership** | A per-simulation UUID token is returned in the `X-Simulation-Token` header and required on `GET /simulations/{id}` — never exposed in the JSON body |
+| **Unbounded memory growth** | The repository and the token store share the same FIFO-eviction capacity, so a token never outlives or is orphaned from its simulation |
+| **CORS / HTTPS** | `CORSMiddleware` configurable via `CORS_ORIGINS`; `HTTPSRedirectMiddleware` toggled by `HTTPS_REDIRECT` |
 
-### Agente OpenAI com tool calling nativo
+### OpenAI agent with native tool calling
 
-Sem LangChain ou LangGraph. O `FinancingAssistantAgent` gerencia o loop de tool calling diretamente com a SDK `openai` assíncrona:
+No LangChain or LangGraph. `FinancingAssistantAgent` drives the tool-calling loop directly
+with the async `openai` SDK:
 
-1. Envia mensagens ao modelo com os schemas de ferramentas
-2. Detecta `finish_reason == "tool_calls"`, executa cada ferramenta via `FinancingAssistantTools`
-3. Appenda resultados e chama o modelo novamente até `finish_reason == "stop"`
+1. Sends the conversation to the model together with the tool schemas.
+2. On `finish_reason == "tool_calls"`, runs each tool through `FinancingAssistantTools`.
+3. Appends the results and calls the model once more to produce the final answer.
 
-Ferramentas disponíveis ao agente: extração de conta, completar campos ausentes, estimar projeto solar, criar simulação, consultar status.
+Tools available to the agent: extract bill, complete missing fields, estimate solar project,
+create simulation, check status.
 
-### Integrações externas
+### External integrations
 
-| Serviço | Uso |
+| Service | Use |
 |---------|-----|
-| **BrasilAPI** | Validação e geocodificação de CEP (endereço → coordenadas) |
-| **Open-Meteo** | Irradiação solar horária por coordenadas — dimensionamento real do sistema fotovoltaico com `performance_ratio` configurável |
-| **Tesseract OCR** | Extração de texto de PDF/imagem via `pytesseract` + `pymupdf` — substituível por mock para testes |
+| **BrasilAPI** | Zip-code (CEP) validation and geocoding (address → coordinates) |
+| **Open-Meteo** | Historical hourly irradiation by coordinates — real PV sizing with a configurable `performance_ratio` |
+| **Tesseract OCR** | Text extraction from PDF/image via `pytesseract` + `pymupdf` — replaceable by a mock for tests |
 
-### Cálculo financeiro
+### Financial calculation
 
-Motor local implementa o **método Price** (parcelas fixas): `PMT = PV × [i(1+i)^n] / [(1+i)^n − 1]`. Taxa mensal e número de parcelas são configuráveis via settings.
+A local engine implements the **Price method** (fixed installments):
+`PMT = PV × [i(1+i)^n] / [(1+i)^n − 1]`. Monthly rate and number of installments are
+configurable via settings.
 
-### Qualidade de código e testes
+### Code quality and tests
 
-- **195 testes** (unit + integration), todos passando — `pytest-asyncio` com `asyncio_mode = "auto"`
-- `ruff` com regras `E, F, I, N, UP, B, SIM` — zero warnings
-- `mypy --strict` habilitado
-- CI via GitHub Actions (`.github/workflows/ci.yml`)
-- Hooks de pre-commit (`.cursor/hooks/run-checks.sh`)
+- **195 tests** (unit + integration), all passing — `pytest-asyncio` with `asyncio_mode = "auto"`.
+- `ruff` with rules `E, F, I, N, UP, B, SIM` — zero warnings.
+- `mypy --strict` — no issues, enforced in CI.
+- CI via GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)): ruff lint +
+  format check, `mypy --strict`, and pytest with coverage.
+- Local pre-commit-style check hook: [`.cursor/hooks/run-checks.sh`](.cursor/hooks/run-checks.sh).
 
 ---
 
-## Requisitos
+## Requirements
 
 - Python 3.11+
-- Tesseract instalado no sistema (opcional — modo mock disponível para dev/testes)
+- Tesseract installed on the system (optional — a mock provider is available for dev/tests)
 
 ## Setup
 
@@ -99,83 +130,112 @@ pip install -e ".[dev]"
 cp .env.example .env
 ```
 
-Edite o `.env` conforme necessário. As variáveis disponíveis estão documentadas em `.env.example`.
+Edit `.env` as needed. Available variables are documented in `.env.example`.
 
-## Executar
+## Run
 
-### API HTTP
+### HTTP API
 
 ```bash
 uvicorn solar_financing_assistant.interface.api.app:app --reload
 ```
 
-Documentação interativa: `http://localhost:8000/docs`
+Interactive docs: `http://localhost:8000/docs`
 
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| `GET` | `/health` | Status da aplicação |
-| `POST` | `/energy-bills/extract` | Extrai dados de conta de energia (rate limit: 30/min) |
-| `POST` | `/energy-bills/complete` | Completa campos ausentes manualmente |
-| `POST` | `/simulations` | Cria simulação (`confirm: true` obrigatório) — retorna token em `X-Simulation-Token` |
-| `GET` | `/simulations/{id}` | Consulta status (token via header `X-Simulation-Token`) |
-| `POST` | `/agent/chat` | Chat com agente OpenAI (rate limit: 10/min) |
+| Method | Route | Description |
+|--------|-------|-------------|
+| `GET` | `/health` | Application status |
+| `POST` | `/energy-bills/extract` | Extract energy-bill data (rate limit: 30/min) |
+| `POST` | `/energy-bills/complete` | Fill missing fields manually |
+| `POST` | `/simulations` | Create a simulation (`confirm: true` required) — returns a token in `X-Simulation-Token` |
+| `GET` | `/simulations/{id}` | Query status (token via `X-Simulation-Token` header) |
+| `POST` | `/agent/chat` | Chat with the OpenAI agent (rate limit: 10/min) |
 
-### CLI interativa
-
-```bash
-python -m solar_financing_assistant          # menu local
-APP_MODE=agent python -m solar_financing_assistant  # agente OpenAI
-```
-
-## Configuração
-
-| Variável | Padrão | Descrição |
-|----------|--------|-----------|
-| `OPENAI_API_KEY` | — | Chave OpenAI (opcional — habilita `/agent/chat`) |
-| `OPENAI_MODEL` | `gpt-4o-mini` | Modelo usado pelo agente |
-| `API_KEY` | `None` | Chave `X-API-Key` obrigatória nos requests (desabilitado em dev) |
-| `CORS_ORIGINS` | `["*"]` | Origens permitidas no CORS |
-| `HTTPS_REDIRECT` | `False` | Redireciona HTTP → HTTPS |
-| `UPLOAD_DIR` | `tempfile.gettempdir()` | Diretório-raiz para paths de arquivo aceitos |
-| `OCR_PROVIDER` | `mock` | Provedor OCR: `mock` ou `tesseract` |
-| `MONTHLY_RATE` | `0.019` | Taxa de juros mensal (1,9% a.m.) |
-| `COST_PER_KWP_BRL` | `5000.00` | Custo de instalação por kWp (R$) |
-| `GENERATION_PER_KWP_MONTH` | `120.0` | Geração estimada por kWp/mês (kWh) — fallback sem coordenadas |
-| `PERFORMANCE_RATIO` | `0.75` | Fator de desempenho do sistema fotovoltaico (0.70–0.85) |
-| `HTTP_TIMEOUT_SECONDS` | `10.0` | Timeout para chamadas HTTP externas |
-| `LOG_LEVEL` | `INFO` | Nível de log |
-
-## Testes
+Quick smoke test (mock OCR — no external services needed):
 
 ```bash
-pytest                   # todos os testes
-pytest --cov             # com cobertura
-pytest tests/unit/       # apenas unitários
-pytest -m integration    # apenas integração (requer rede)
+# extract a mock bill (any path inside the OS temp dir works with the mock provider)
+curl -X POST http://localhost:8000/energy-bills/extract \
+  -H "Content-Type: application/json" \
+  -d "{\"file_path\": \"$TMPDIR/bill.pdf\"}"
 ```
 
-## Estrutura do projeto
+### Interactive CLI
+
+```bash
+python -m solar_financing_assistant                 # local menu
+APP_MODE=agent python -m solar_financing_assistant  # OpenAI agent
+```
+
+### Docker
+
+```bash
+docker build -t solar-financing-assistant .
+docker run --rm -p 8000:8000 --env-file .env solar-financing-assistant
+```
+
+The image defaults to the `mock` OCR provider, so it runs with no extra system packages. To
+enable real OCR, install `tesseract-ocr`/`tesseract-ocr-por` in the image and set
+`OCR_PROVIDER=tesseract`.
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OPENAI_API_KEY` | — | OpenAI key (optional — enables `/agent/chat`) |
+| `OPENAI_MODEL` | `gpt-4o-mini` | Model used by the agent |
+| `API_KEY` | `None` | `X-API-Key` required on requests (disabled in dev) |
+| `CORS_ORIGINS` | `["*"]` | Allowed CORS origins |
+| `HTTPS_REDIRECT` | `False` | Redirect HTTP → HTTPS |
+| `UPLOAD_DIR` | `tempfile.gettempdir()` | Root directory for accepted file paths |
+| `OCR_PROVIDER` | `mock` | OCR provider: `mock` or `tesseract` |
+| `MONTHLY_RATE` | `0.019` | Monthly interest rate (1.9% p.m.) |
+| `COST_PER_KWP_BRL` | `5000.00` | Installation cost per kWp (BRL) |
+| `GENERATION_PER_KWP_MONTH` | `120.0` | Estimated generation per kWp/month (kWh) — fallback without coordinates |
+| `PERFORMANCE_RATIO` | `0.75` | PV system performance ratio (0.70–0.85) |
+| `HTTP_TIMEOUT_SECONDS` | `10.0` | Timeout for outbound HTTP calls |
+| `LOG_LEVEL` | `INFO` | Log level |
+
+## Tests & checks
+
+```bash
+pytest                   # all tests
+pytest --cov             # with coverage
+pytest tests/unit/       # unit only
+pytest -m integration    # integration only (requires network)
+
+ruff check . && ruff format --check .   # lint + format
+mypy                                     # strict type checking
+```
+
+## Project structure
 
 ```
 src/solar_financing_assistant/
-├── domain/             # entidades (Address, Customer, EnergyBill, SolarProject,
-│                       #   FinancingOffer, FinancingSimulation) e exceções — sem deps externas
+├── domain/             # entities (Address, Customer, EnergyBill, SolarProject,
+│                       #   FinancingOffer, FinancingSimulation) and exceptions — no external deps
 ├── application/
-│   ├── dtos/           # objetos de transferência de dados (Pydantic)
-│   ├── ports/          # contratos (Protocol) para infraestrutura e use cases
-│   └── use_cases/      # lógica de aplicação (9 use cases)
+│   ├── dtos/           # data transfer objects (Pydantic)
+│   ├── ports/          # Protocol contracts for infrastructure and use cases
+│   └── use_cases/      # application logic (9 use cases)
 ├── infrastructure/
-│   ├── financing/      # motor de cálculo Price local
-│   ├── gateways/       # BrasilAPI (CEP) e Open-Meteo (potencial solar)
-│   ├── llm/            # agente OpenAI com tool calling + FinancingAssistantTools
-│   ├── ocr/            # Tesseract e mock — selecionados por factory
-│   └── repositories/   # repositório em memória com eviction FIFO
+│   ├── financing/      # local Price calculation engine
+│   ├── gateways/       # BrasilAPI (CEP) and Open-Meteo (solar potential)
+│   ├── llm/            # OpenAI agent with tool calling + FinancingAssistantTools
+│   ├── ocr/            # Tesseract and mock — selected by a factory
+│   └── repositories/   # in-memory repository with FIFO eviction
 ├── interface/
-│   ├── api/            # FastAPI — schemas, rotas, auth, lifespan, AppState
-│   └── cli/            # ChatCLI e AgentCLI
-├── bootstrap.py        # composição de dependências compartilhada
+│   ├── api/            # FastAPI — schemas, routes, auth, lifespan, AppState
+│   └── cli/            # ChatCLI and AgentCLI
+├── bootstrap.py        # shared dependency composition root
 └── config/             # Settings via pydantic-settings (.env)
+docs/
+└── architecture.md     # architecture, diagrams, design decisions, security model
 tests/
-├── unit/               # 26 suítes cobrindo domínio, use cases e infraestrutura
-└── integration/        # rotas HTTP, CLI, gateways externos
+├── unit/               # domain, use cases, and infrastructure
+└── integration/        # HTTP routes, CLI, external gateways
 ```
+
+## License
+
+[MIT](LICENSE) © Eduardo Eile

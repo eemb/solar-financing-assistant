@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any
 
 from solar_financing_assistant.infrastructure.llm.agent import FinancingAssistantAgent
 
@@ -35,7 +36,7 @@ class AgentCLI:
 
     def __init__(self, agent: FinancingAssistantAgent) -> None:
         self._agent = agent
-        self._messages: list[dict] = [
+        self._messages: list[dict[str, Any]] = [
             {"role": "system", "content": _SYSTEM_PROMPT},
         ]
 

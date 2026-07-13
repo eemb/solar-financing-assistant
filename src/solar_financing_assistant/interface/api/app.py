@@ -56,7 +56,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             agent = None
 
         app.state.app_state = AppState(settings=_settings, tools=tools, agent=agent)
-        yield
+        try:
+            yield
+        finally:
+            # Release outbound httpx clients held by the gateways.
+            await tools.aclose()
 
     # -----------------------------------------------------------------------
     # Application
@@ -65,9 +69,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application = FastAPI(
         title="Solar Financing Assistant API",
         description=(
-            "Backend HTTP para simulação de financiamento de energia solar residencial. "
-            "Extrai dados de contas de energia, estima projetos fotovoltaicos e calcula "
-            "parcelas pelo método Price."
+            "HTTP backend for residential solar financing simulation. Extracts energy-bill "
+            "data, estimates photovoltaic projects, and computes installments using the "
+            "Price method."
         ),
         version="0.1.0",
         lifespan=_lifespan,

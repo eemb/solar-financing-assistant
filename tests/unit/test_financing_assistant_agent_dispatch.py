@@ -30,7 +30,7 @@ class _FakeTools:
     async def simulate_financing_from_bill(self, extracted_bill_data: dict) -> dict:
         return {"status": "approved", "simulation_id": "fake-uuid", "offer": {}}
 
-    def check_simulation_status(self, simulation_id: str) -> dict:
+    def check_simulation_status(self, simulation_id: str, access_token: str | None = None) -> dict:
         return {"simulation_id": simulation_id, "status": "approved"}
 
     # FinancingAssistantTools attributes accessed by __main__._run_cli
@@ -81,6 +81,23 @@ async def test_dispatch_check_simulation_status(agent: FinancingAssistantAgent) 
 
     assert result["simulation_id"] == "abc-123"
     assert result["status"] == "approved"
+
+
+async def test_dispatch_check_simulation_status_forwards_access_token(
+    agent: FinancingAssistantAgent,
+) -> None:
+    """The access_token must be forwarded so the agent can read simulations it created."""
+    from unittest.mock import MagicMock
+
+    spy = MagicMock(return_value={"simulation_id": "abc-123", "status": "approved"})
+    agent._tools.check_simulation_status = spy  # type: ignore[attr-defined]
+
+    await agent._execute_tool(
+        "check_simulation_status",
+        {"simulation_id": "abc-123", "access_token": "secret-token"},
+    )
+
+    spy.assert_called_once_with("abc-123", access_token="secret-token")
 
 
 # ---------------------------------------------------------------------------

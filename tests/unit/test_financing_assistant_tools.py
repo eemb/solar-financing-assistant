@@ -297,3 +297,47 @@ def test_check_simulation_status_returns_error_for_invalid_uuid() -> None:
 
     assert result["status"] == "error"
     assert "Invalid simulation ID" in result["message"]
+
+
+# ---------------------------------------------------------------------------
+# Tests — aclose releases registered resources (no httpx client leak)
+# ---------------------------------------------------------------------------
+
+
+async def test_aclose_releases_registered_closeables() -> None:
+    """aclose must close every registered resource exactly once and be idempotent."""
+
+    class _FakeClient:
+        def __init__(self) -> None:
+            self.closed = 0
+
+        async def aclose(self) -> None:
+            self.closed += 1
+
+    client_a, client_b = _FakeClient(), _FakeClient()
+
+    repository = InMemorySimulationRepository()
+    tools = FinancingAssistantTools(
+        extract_energy_bill_data_use_case=ExtractEnergyBillDataUseCase(MockOCRAdapter()),
+        get_missing_energy_bill_fields_use_case=GetMissingEnergyBillFieldsUseCase(),
+        complete_energy_bill_data_use_case=CompleteEnergyBillDataUseCase(),
+        estimate_solar_project_from_bill_use_case=EstimateSolarProjectFromBillUseCase(
+            validate_address_use_case=_FakeValidateAddress(),
+            get_solar_potential_use_case=_FakeGetSolarPotential(),
+            estimate_solar_project_use_case=EstimateSolarProjectUseCase(),
+            fallback_generation_per_kwp_month=_FALLBACK_GEN,
+            cost_per_kwp_brl=_COST_PER_KWP,
+        ),
+        create_financing_simulation_use_case=CreateFinancingSimulationUseCase(
+            LocalFinancingEngine(), repository
+        ),
+        check_simulation_status_use_case=CheckSimulationStatusUseCase(repository),
+        monthly_rate=_MONTHLY_RATE,
+        closeables=[client_a, client_b],
+    )
+
+    await tools.aclose()
+    await tools.aclose()  # idempotent — must not close twice or raise
+
+    assert client_a.closed == 1
+    assert client_b.closed == 1
