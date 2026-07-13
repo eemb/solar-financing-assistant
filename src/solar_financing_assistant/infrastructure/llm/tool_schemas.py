@@ -6,7 +6,9 @@ https://platform.openai.com/docs/guides/function-calling
 
 from __future__ import annotations
 
-TOOL_SCHEMAS: list[dict] = [
+from typing import Any
+
+TOOL_SCHEMAS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
@@ -78,9 +80,9 @@ TOOL_SCHEMAS: list[dict] = [
                 "Call this tool ONLY after: (a) all required fields are present "
                 "(missing_fields is empty), AND (b) the user has explicitly confirmed "
                 "they want to proceed with the simulation. "
-                "After this tool returns a simulation_id, you MUST immediately call "
-                "check_simulation_status with that ID to confirm the status before "
-                "presenting results to the user. "
+                "After this tool returns a simulation_id AND an access_token, you MUST "
+                "immediately call check_simulation_status with BOTH values to confirm the "
+                "status before presenting results to the user. "
                 "Returns status='missing_fields' if data is still incomplete, "
                 "or status='error' if the simulation fails."
             ),
@@ -106,8 +108,8 @@ TOOL_SCHEMAS: list[dict] = [
             "description": (
                 "Retrieve the current status of a previously created financing simulation. "
                 "ALWAYS call this tool after simulate_financing_from_bill returns a "
-                "simulation_id — use the returned ID to confirm the official status via "
-                "this tool before presenting any results to the user. "
+                "simulation_id — pass both the returned simulation_id and access_token to "
+                "confirm the official status before presenting any results to the user. "
                 "Also call this tool when the user asks about the result or status of a "
                 "simulation and provides a simulation ID (UUID). "
                 "Returns the simulation status, solar project data, and financing offer "
@@ -121,6 +123,13 @@ TOOL_SCHEMAS: list[dict] = [
                         "description": (
                             "UUID of the simulation to look up, "
                             "as returned by simulate_financing_from_bill."
+                        ),
+                    },
+                    "access_token": {
+                        "type": "string",
+                        "description": (
+                            "The access_token returned by simulate_financing_from_bill for "
+                            "this simulation. Required to read a simulation you just created."
                         ),
                     },
                 },

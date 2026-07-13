@@ -6,7 +6,7 @@ import io
 import logging
 from pathlib import Path
 
-import pytesseract
+import pytesseract  # type: ignore[import-untyped]
 from PIL import Image
 
 from solar_financing_assistant.application.dtos.extracted_energy_bill_data_dto import (
@@ -65,7 +65,7 @@ class TesseractOCRAdapter(OCRPort):
     # ------------------------------------------------------------------
 
     def _extract_text_from_pdf(self, file_path: Path) -> str:
-        import fitz  # PyMuPDF — lazy import to avoid hard dependency at module level
+        import fitz  # type: ignore[import-untyped]  # PyMuPDF — lazy import
 
         texts: list[str] = []
         with fitz.open(file_path) as doc:
@@ -84,7 +84,7 @@ class TesseractOCRAdapter(OCRPort):
         from PIL import ImageEnhance, ImageFilter
 
         w, h = image.size
-        image = image.resize((w * 2, h * 2), Image.LANCZOS)
+        image = image.resize((w * 2, h * 2), Image.Resampling.LANCZOS)
         image = ImageEnhance.Contrast(image).enhance(2.0)
         image = ImageEnhance.Sharpness(image).enhance(2.0)
         return image.filter(ImageFilter.SHARPEN)
@@ -93,4 +93,4 @@ class TesseractOCRAdapter(OCRPort):
         image = self._preprocess_image(Image.open(file_path).convert("L"))
         text = pytesseract.image_to_string(image, lang=self._language, config="--psm 6 --oem 3")
         logger.debug("OCR extracted %d chars from image %s", len(text), file_path.name)
-        return text
+        return str(text)

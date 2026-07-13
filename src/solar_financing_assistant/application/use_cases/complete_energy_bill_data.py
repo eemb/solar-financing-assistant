@@ -54,4 +54,4 @@ class CompleteEnergyBillDataUseCase:
             else:
                 data[field] = raw_value.strip() or None
 
-        return ExtractedEnergyBillDataDTO(**data)
+        return ExtractedEnergyBillDataDTO.model_validate(data)

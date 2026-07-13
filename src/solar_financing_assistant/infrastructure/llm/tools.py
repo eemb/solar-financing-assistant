@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import json
 from collections import OrderedDict
+from collections.abc import Sequence
 from decimal import Decimal
 from pathlib import Path
+from typing import Any, Protocol
 from uuid import UUID, uuid4
 
 from solar_financing_assistant.application.dtos.extracted_energy_bill_data_dto import (
@@ -51,6 +53,13 @@ from solar_financing_assistant.infrastructure.repositories.in_memory_simulation_
 # from becoming publicly accessible again once its token entry is gone.
 _MAX_TOKENS = _REPO_MAX_SIZE
 
+
+class _AsyncCloseable(Protocol):
+    """Anything holding async resources (e.g. an httpx client) to release on shutdown."""
+
+    async def aclose(self) -> None: ...
+
+
 _STATUS_MESSAGES: dict[str, str] = {
     "approved": "Simulação aprovada com oferta de financiamento.",
     "failed": "Simulação reprovada.",
@@ -60,7 +69,7 @@ _STATUS_MESSAGES: dict[str, str] = {
 }
 
 
-def _solar_project_to_dict(project: SolarProject) -> dict:
+def _solar_project_to_dict(project: SolarProject) -> dict[str, Any]:
     return {
         "id": str(project.id),
         "monthly_consumption_kwh": project.monthly_consumption_kwh,
@@ -70,7 +79,7 @@ def _solar_project_to_dict(project: SolarProject) -> dict:
     }
 
 
-def _offer_to_dict(offer: FinancingOffer) -> dict:
+def _offer_to_dict(offer: FinancingOffer) -> dict[str, Any]:
     return {
         "id": str(offer.id),
         "approved_amount": str(offer.approved_amount),
@@ -84,7 +93,7 @@ def _offer_to_dict(offer: FinancingOffer) -> dict:
 def _simulation_to_dict(
     simulation: FinancingSimulation,
     solar_potential_source: str = "unknown",
-) -> dict:
+) -> dict[str, Any]:
     status = simulation.status.value
     offer = simulation.get_best_offer()
     return {
@@ -128,6 +137,7 @@ class FinancingAssistantTools:
         check_simulation_status_use_case: CheckSimulationStatusUseCase,
         monthly_rate: Decimal,
         ocr_provider_name: str = "ocr",
+        closeables: Sequence[_AsyncCloseable] | None = None,
     ) -> None:
         self._extract_bill = extract_energy_bill_data_use_case
         self._get_missing = get_missing_energy_bill_fields_use_case
@@ -137,16 +147,28 @@ class FinancingAssistantTools:
         self._check_status = check_simulation_status_use_case
         self.monthly_rate = monthly_rate
         self._ocr_provider_name = ocr_provider_name
+        # Resources (e.g. httpx clients inside gateways) that must be released
+        # when the owning application shuts down. See ``aclose``.
+        self._closeables: list[_AsyncCloseable] = list(closeables) if closeables else []
         # Maps simulation_id → access_token; populated by simulate_financing_from_bill
         # and checked by check_simulation_status to enforce per-simulation ownership.
         # Bounded to _MAX_TOKENS entries (FIFO eviction) to prevent unbounded growth.
         self._token_store: OrderedDict[UUID, str] = OrderedDict()
 
+    async def aclose(self) -> None:
+        """Release every registered async resource (idempotent).
+
+        Called by the FastAPI lifespan on shutdown so that the httpx clients
+        held by the address/solar gateways are closed instead of leaking.
+        """
+        while self._closeables:
+            await self._closeables.pop().aclose()
+
     # ------------------------------------------------------------------
     # Tool 1 — extract_energy_bill_data
     # ------------------------------------------------------------------
 
-    async def extract_energy_bill_data(self, file_path: str) -> dict:
+    async def extract_energy_bill_data(self, file_path: str) -> dict[str, Any]:
         """Extract bill data from an image/PDF and report which fields are missing."""
         path = Path(file_path)
         if not path.exists():
@@ -159,7 +181,7 @@ class FinancingAssistantTools:
 
         missing_fields = self._get_missing.execute(extracted_bill)
         data_dict = extracted_bill.model_dump(mode="json")
-        result: dict = {
+        result: dict[str, Any] = {
             "data": data_dict,
             # Delimiter wrapper prevents the LLM from treating OCR-extracted field
             # values (which are user-controlled) as instructions.
@@ -185,9 +207,9 @@ class FinancingAssistantTools:
 
     def complete_energy_bill_data(
         self,
-        extracted_bill_data: dict,
+        extracted_bill_data: dict[str, Any],
         manual_values: dict[str, str],
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Merge OCR-extracted data with manually supplied field values."""
         try:
             extracted_bill = ExtractedEnergyBillDataDTO(**extracted_bill_data)
@@ -205,7 +227,9 @@ class FinancingAssistantTools:
     # Tool 3 — simulate_financing_from_bill
     # ------------------------------------------------------------------
 
-    async def simulate_financing_from_bill(self, extracted_bill_data: dict) -> dict:
+    async def simulate_financing_from_bill(
+        self, extracted_bill_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """Run the full financing simulation pipeline from a bill data dict."""
         try:
             extracted_bill = ExtractedEnergyBillDataDTO(**extracted_bill_data)
@@ -242,7 +266,9 @@ class FinancingAssistantTools:
     # Tool 4 — check_simulation_status
     # ------------------------------------------------------------------
 
-    def check_simulation_status(self, simulation_id: str, access_token: str | None = None) -> dict:
+    def check_simulation_status(
+        self, simulation_id: str, access_token: str | None = None
+    ) -> dict[str, Any]:
         """Retrieve the current status of a previously created simulation."""
         try:
             sim_uuid = UUID(simulation_id)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import secrets
+
 from fastapi import Depends, HTTPException, Request, Security
 from fastapi.security import APIKeyHeader
 from slowapi import Limiter
@@ -55,5 +57,9 @@ def require_api_key(
     is resolved through FastAPI's DI system so that ``dependency_overrides``
     continue to work in tests.
     """
-    if settings.api_key is not None and key != settings.api_key:
+    if settings.api_key is None:
+        return  # authentication disabled (local development)
+
+    # secrets.compare_digest avoids leaking the key length/prefix via timing.
+    if key is None or not secrets.compare_digest(key, settings.api_key):
         raise HTTPException(status_code=401, detail="Invalid or missing API key.")

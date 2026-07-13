@@ -1,5 +1,7 @@
 """BrasilAPI implementation of AddressGatewayPort."""
 
+from typing import Any
+
 import httpx
 
 from solar_financing_assistant.application.dtos.address_dto import AddressDTO
@@ -32,7 +34,7 @@ class BrasilApiAddressGateway(AddressGatewayPort):
 
         response.raise_for_status()
 
-        data: dict = response.json()
+        data: dict[str, Any] = response.json()
 
         latitude: float | None = None
         longitude: float | None = None

@@ -89,4 +89,5 @@ def build_tools(app_settings: Settings) -> FinancingAssistantTools:
         check_simulation_status_use_case=CheckSimulationStatusUseCase(repository),
         monthly_rate=app_settings.monthly_rate,
         ocr_provider_name=app_settings.ocr_provider,
+        closeables=[address_gateway, solar_gateway],
     )

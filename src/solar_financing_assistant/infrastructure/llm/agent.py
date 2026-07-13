@@ -8,8 +8,14 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Any, cast
 
 from openai import AsyncOpenAI
+from openai.types.chat import (
+    ChatCompletionMessageFunctionToolCall,
+    ChatCompletionMessageParam,
+    ChatCompletionToolParam,
+)
 
 from solar_financing_assistant.infrastructure.llm.tool_schemas import TOOL_SCHEMAS
 from solar_financing_assistant.infrastructure.llm.tools import FinancingAssistantTools
@@ -47,7 +53,7 @@ class FinancingAssistantAgent:
     # Public interface
     # ------------------------------------------------------------------
 
-    async def run_turn(self, messages: list[dict]) -> dict:
+    async def run_turn(self, messages: list[dict[str, Any]]) -> dict[str, Any]:
         """Run one conversational turn, executing any tool calls along the way.
 
         The *messages* list is mutated in-place: the assistant tool-call
@@ -62,8 +68,8 @@ class FinancingAssistantAgent:
 
         response = await self._client.chat.completions.create(
             model=self._model,
-            messages=messages,  # type: ignore[arg-type]
-            tools=TOOL_SCHEMAS,  # type: ignore[arg-type]
+            messages=cast("list[ChatCompletionMessageParam]", messages),
+            tools=cast("list[ChatCompletionToolParam]", TOOL_SCHEMAS),
             tool_choice="auto",
         )
 
@@ -72,10 +78,18 @@ class FinancingAssistantAgent:
         if not message.tool_calls:
             return {"role": "assistant", "content": message.content or ""}
 
+        # Only "function" tool calls are supported; the SDK also models a
+        # "custom" variant that this agent never declares, so it is ignored.
+        function_calls = [
+            tc for tc in message.tool_calls if isinstance(tc, ChatCompletionMessageFunctionToolCall)
+        ]
+        if not function_calls:
+            return {"role": "assistant", "content": message.content or ""}
+
         # ------------------------------------------------------------------
         # Execute every tool call in sequence and collect results
         # ------------------------------------------------------------------
-        assistant_dict: dict = {
+        assistant_dict: dict[str, Any] = {
             "role": "assistant",
             "content": message.content,
             "tool_calls": [
@@ -87,12 +101,12 @@ class FinancingAssistantAgent:
                         "arguments": tc.function.arguments,
                     },
                 }
-                for tc in message.tool_calls
+                for tc in function_calls
             ],
         }
         messages.append(assistant_dict)
 
-        for tool_call in message.tool_calls:
+        for tool_call in function_calls:
             try:
                 args = json.loads(tool_call.function.arguments)
             except json.JSONDecodeError:
@@ -117,8 +131,8 @@ class FinancingAssistantAgent:
         # ------------------------------------------------------------------
         final_response = await self._client.chat.completions.create(
             model=self._model,
-            messages=messages,  # type: ignore[arg-type]
-            tools=TOOL_SCHEMAS,  # type: ignore[arg-type]
+            messages=cast("list[ChatCompletionMessageParam]", messages),
+            tools=cast("list[ChatCompletionToolParam]", TOOL_SCHEMAS),
             tool_choice="none",
         )
 
@@ -129,7 +143,7 @@ class FinancingAssistantAgent:
     # Tool dispatch
     # ------------------------------------------------------------------
 
-    async def _execute_tool(self, name: str, arguments: dict) -> dict:
+    async def _execute_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         """Route *name* to the corresponding FinancingAssistantTools method."""
         if name == "extract_energy_bill_data":
             return await self._tools.extract_energy_bill_data(arguments["file_path"])
@@ -144,6 +158,9 @@ class FinancingAssistantAgent:
             return await self._tools.simulate_financing_from_bill(arguments["extracted_bill_data"])
 
         if name == "check_simulation_status":
-            return self._tools.check_simulation_status(arguments["simulation_id"])
+            return self._tools.check_simulation_status(
+                arguments["simulation_id"],
+                access_token=arguments.get("access_token"),
+            )
 
         return {"status": "error", "message": f"Unknown tool: {name}"}

@@ -7,6 +7,7 @@ more stable estimate for solar system sizing than a single-day forecast.
 
 import logging
 from datetime import date, timedelta
+from typing import Any
 
 import httpx
 
@@ -53,8 +54,8 @@ class OpenMeteoSolarGateway(SolarPotentialGatewayPort):
         )
         response.raise_for_status()
 
-        data: dict = response.json()
-        raw_values: list = data["hourly"]["shortwave_radiation"]
+        data: dict[str, Any] = response.json()
+        raw_values: list[Any] = data["hourly"]["shortwave_radiation"]
 
         radiation_values = [v for v in raw_values if isinstance(v, (int, float))]
 
